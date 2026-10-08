@@ -55,21 +55,33 @@ function Index() {
         </div>
       </section>
 
-      <section aria-labelledby="pourquoi-titre">
-        <h2 id="pourquoi-titre" className="mb-4 text-xl font-semibold text-foreground">Pourquoi Le Fil IA</h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section aria-labelledby="pourquoi-titre" className="rounded-xl border border-border bg-card/40 p-6 sm:p-8">
+        <p className="tag-rubrique mb-2">Pourquoi s'abonner</p>
+        <h2 id="pourquoi-titre" className="text-2xl font-bold tracking-tight text-foreground">Votre veille IA, sans le bruit</h2>
+        <p className="mt-2 max-w-2xl text-muted-foreground">
+          Des dizaines d'annonces paraissent chaque jour. Le Fil IA les lit pour vous et ne garde que l'essentiel, prêt à lire avant votre premier café.
+        </p>
+        <div className="mt-6 grid gap-4 sm:grid-cols-2">
           {[
-            ["Des sources reconnues", "Une vingtaine de sources suivies chaque jour : éditeurs (OpenAI, Google DeepMind, Mistral AI, Hugging Face), régulation (CNIL, AI Act) et médias spécialisés français et anglais."],
-            ["Des liens vérifiables", "Chaque sujet renvoie à l'article d'origine. Les liens sont posés par la chaîne de collecte, jamais par l'IA."],
-            ["Un tri pertinent", "Six rubriques, articles déjà vus écartés, priorité à l'actualité récente. Vous filtrez ce qui vous concerne."],
-            ["Une IA encadrée", "Le résumé est rédigé d'après l'extrait de l'article, sans rien ajouter. Sans résumé fiable, l'extrait est affiché tel quel."],
-          ].map(([t, d]) => (
-            <div key={t} className="rounded-lg border border-border bg-card p-4">
-              <h3 className="text-sm font-semibold text-foreground">{t}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{d}</p>
+            ["01", "Deux minutes au lieu d'une heure", "Une quinzaine de sujets par jour au plus, chacun résumé en deux phrases. Vous savez ce qui compte, sans parcourir vingt sites."],
+            ["02", "Des sources qui font autorité", "OpenAI, Google DeepMind, Mistral AI, Hugging Face, la CNIL, la lettre de l'AI Act et des médias tech de référence, en français et en anglais."],
+            ["03", "Tout est vérifiable", "Chaque sujet cite sa source et mène à l'article original. Les liens viennent de la collecte, jamais de l'IA : rien n'est inventé."],
+            ["04", "Seulement ce qui vous concerne", "Six rubriques, de la réglementation à la recherche. Choisissez les vôtres et filtrez la synthèse en un clic."],
+          ].map(([n, t, d]) => (
+            <div key={n} className="flex gap-4 rounded-lg border border-border bg-card p-5">
+              <span aria-hidden="true" className="font-mono text-sm font-semibold text-primary">{n}</span>
+              <div>
+                <h3 className="font-semibold text-foreground">{t}</h3>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{d}</p>
+              </div>
             </div>
           ))}
         </div>
+        {!user && (
+          <div className="mt-6">
+            <Button onClick={() => openLogin("signup")}>Recevoir la synthèse demain matin</Button>
+          </div>
+        )}
       </section>
 
       <section aria-labelledby="apercu-titre">

@@ -109,17 +109,24 @@ const DOCS: Record<Exclude<Doc, null>, { title: string; body: ReactNode }> = {
 
 export function Footer() {
   const [doc, setDoc] = useState<Doc>(null);
-  const btn = "link-accent text-sm";
+  const btn = "rounded text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
   return (
-    <footer className="mt-16 border-t border-border">
-      <div className="mx-auto max-w-5xl px-4 py-6 text-sm text-muted-foreground">
-        <p>
-          Le Fil IA, projet de démonstration |{" "}
-          <button type="button" className={btn} onClick={() => setDoc("mentions")}>Mentions légales</button> |{" "}
-          <button type="button" className={btn} onClick={() => setDoc("confidentialite")}>Confidentialité</button> |{" "}
+    <footer className="mt-16 border-t border-border bg-card/40">
+      <div className="mx-auto grid max-w-5xl gap-6 px-4 py-8 text-sm sm:grid-cols-3">
+        <div>
+          <p className="font-mono font-semibold text-foreground">Le Fil <span className="text-primary">IA</span></p>
+          <p className="mt-2 text-muted-foreground">La veille IA triée et sourcée, chaque matin, par e-mail ou sur Discord.</p>
+        </div>
+        <nav aria-label="Informations légales" className="flex flex-col items-start gap-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-foreground">Informations</p>
+          <button type="button" className={btn} onClick={() => setDoc("mentions")}>Mentions légales</button>
+          <button type="button" className={btn} onClick={() => setDoc("confidentialite")}>Confidentialité</button>
           <button type="button" className={btn} onClick={() => setDoc("cookies")}>Cookies</button>
-        </p>
-        <p className="mt-2 text-xs">Cadre indicatif, non validé juridiquement.</p>
+        </nav>
+        <div className="text-muted-foreground sm:text-right">
+          <p>© 2026 Le Fil IA</p>
+          <p className="mt-1">Projet de démonstration</p>
+        </div>
       </div>
       <Dialog open={doc !== null} onOpenChange={(o) => !o && setDoc(null)}>
         <DialogContent>
@@ -129,6 +136,7 @@ export function Footer() {
                 <DialogTitle>{DOCS[doc].title}</DialogTitle>
               </DialogHeader>
               <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">{DOCS[doc].body}</div>
+              <p className="text-xs text-muted-foreground">Cadre indicatif, non validé juridiquement.</p>
             </>
           )}
         </DialogContent>
