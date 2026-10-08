@@ -14,16 +14,187 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      demandes: {
+        Row: {
+          created_at: string
+          demandeur: string | null
+          id: string
+          statut: string
+        }
+        Insert: {
+          created_at?: string
+          demandeur?: string | null
+          id?: string
+          statut?: string
+        }
+        Update: {
+          created_at?: string
+          demandeur?: string | null
+          id?: string
+          statut?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          canal: string
+          created_at: string
+          discord_webhook_url: string | null
+          email: string | null
+          id: string
+          rubriques: string[]
+        }
+        Insert: {
+          canal?: string
+          created_at?: string
+          discord_webhook_url?: string | null
+          email?: string | null
+          id: string
+          rubriques?: string[]
+        }
+        Update: {
+          canal?: string
+          created_at?: string
+          discord_webhook_url?: string | null
+          email?: string | null
+          id?: string
+          rubriques?: string[]
+        }
+        Relationships: []
+      }
+      sujets: {
+        Row: {
+          extrait: string
+          id: string
+          lien: string
+          ordre: number
+          ordre_rubrique: number
+          publie_le: string | null
+          redige: boolean
+          resume: string
+          rubrique: string
+          source: string
+          synthese_id: string
+          titre: string
+        }
+        Insert: {
+          extrait?: string
+          id?: string
+          lien: string
+          ordre?: number
+          ordre_rubrique?: number
+          publie_le?: string | null
+          redige?: boolean
+          resume?: string
+          rubrique: string
+          source?: string
+          synthese_id: string
+          titre: string
+        }
+        Update: {
+          extrait?: string
+          id?: string
+          lien?: string
+          ordre?: number
+          ordre_rubrique?: number
+          publie_le?: string | null
+          redige?: boolean
+          resume?: string
+          rubrique?: string
+          source?: string
+          synthese_id?: string
+          titre?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sujets_synthese_id_fkey"
+            columns: ["synthese_id"]
+            isOneToOne: false
+            referencedRelation: "syntheses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      syntheses: {
+        Row: {
+          created_at: string
+          date_veille: string
+          degrade: boolean
+          envoye_le: string | null
+          exemple: boolean
+          id: string
+          nb_articles: number | null
+          nb_sources: number | null
+          nb_sources_echec: number | null
+          nb_sujets: number | null
+          statut: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date_veille: string
+          degrade?: boolean
+          envoye_le?: string | null
+          exemple?: boolean
+          id?: string
+          nb_articles?: number | null
+          nb_sources?: number | null
+          nb_sources_echec?: number | null
+          nb_sujets?: number | null
+          statut: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date_veille?: string
+          degrade?: boolean
+          envoye_le?: string | null
+          exemple?: boolean
+          id?: string
+          nb_articles?: number | null
+          nb_sources?: number | null
+          nb_sources_echec?: number | null
+          nb_sujets?: number | null
+          statut?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      apercu_public: { Args: never; Returns: Json }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      publier_synthese: { Args: { p: Json }; Returns: Json }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +321,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const

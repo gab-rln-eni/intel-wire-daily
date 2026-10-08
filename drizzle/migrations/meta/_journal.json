@@ -1,5 +1,13 @@
 {
   "version": "7",
   "dialect": "postgresql",
-  "entries": []
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791461356416,
+      "tag": "0000_le_fil_ia_schema",
+      "breakpoints": true
+    }
+  ]
 }
