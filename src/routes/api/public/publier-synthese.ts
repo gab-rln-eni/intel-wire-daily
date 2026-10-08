@@ -25,7 +25,7 @@ export const Route = createFileRoute("/api/public/publier-synthese")({
         } catch {
           return json({ error: "JSON invalide" }, 400);
         }
-        const s = body?.synthese as Record<string, unknown> | undefined;
+        const s = body?.["synthese"] as Record<string, unknown> | undefined;
         if (!s || typeof s !== "object") return json({ error: "synthese manquante" }, 400);
         const date = str(s["date_veille"]);
         if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ error: "date_veille invalide" }, 400);
@@ -74,7 +74,7 @@ export const Route = createFileRoute("/api/public/publier-synthese")({
         }
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const { data, error } = await supabaseAdmin.rpc("publier_synthese", { p: { synthese, sujets } });
+        const { data, error } = await supabaseAdmin.rpc("publier_synthese", { p: { synthese, sujets } as never });
         if (error) return json({ error: "Écriture impossible" }, 500);
         const r = data as { conflict?: boolean; ok?: boolean; date_veille: string; nb_sujets?: number };
         if (r.conflict) return json({ ok: false, error: "Sujets existants et liste reçue vide", date_veille: date }, 409);
