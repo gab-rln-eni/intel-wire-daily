@@ -10,33 +10,90 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as CompteRouteImport } from './routes/compte'
+import { Route as ApiPublicListerAbonnesRouteImport } from './routes/api/public/lister-abonnes'
+import { Route as ApiPublicPublierSyntheseRouteImport } from './routes/api/public/publier-synthese'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CompteRoute = CompteRouteImport.update({
+  id: '/compte',
+  path: '/compte',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicListerAbonnesRoute = ApiPublicListerAbonnesRouteImport.update({
+  id: '/api/public/lister-abonnes',
+  path: '/api/public/lister-abonnes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicPublierSyntheseRoute =
+  ApiPublicPublierSyntheseRouteImport.update({
+    id: '/api/public/publier-synthese',
+    path: '/api/public/publier-synthese',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/compte': typeof CompteRoute
+  '/api/public/lister-abonnes': typeof ApiPublicListerAbonnesRoute
+  '/api/public/publier-synthese': typeof ApiPublicPublierSyntheseRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/compte': typeof CompteRoute
+  '/api/public/lister-abonnes': typeof ApiPublicListerAbonnesRoute
+  '/api/public/publier-synthese': typeof ApiPublicPublierSyntheseRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/compte': typeof CompteRoute
+  '/api/public/lister-abonnes': typeof ApiPublicListerAbonnesRoute
+  '/api/public/publier-synthese': typeof ApiPublicPublierSyntheseRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/compte'
+    | '/api/public/lister-abonnes'
+    | '/api/public/publier-synthese'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/admin'
+    | '/compte'
+    | '/api/public/lister-abonnes'
+    | '/api/public/publier-synthese'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/compte'
+    | '/api/public/lister-abonnes'
+    | '/api/public/publier-synthese'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
+  CompteRoute: typeof CompteRoute
+  ApiPublicListerAbonnesRoute: typeof ApiPublicListerAbonnesRoute
+  ApiPublicPublierSyntheseRoute: typeof ApiPublicPublierSyntheseRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +105,43 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/compte': {
+      id: '/compte'
+      path: '/compte'
+      fullPath: '/compte'
+      preLoaderRoute: typeof CompteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/lister-abonnes': {
+      id: '/api/public/lister-abonnes'
+      path: '/api/public/lister-abonnes'
+      fullPath: '/api/public/lister-abonnes'
+      preLoaderRoute: typeof ApiPublicListerAbonnesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/publier-synthese': {
+      id: '/api/public/publier-synthese'
+      path: '/api/public/publier-synthese'
+      fullPath: '/api/public/publier-synthese'
+      preLoaderRoute: typeof ApiPublicPublierSyntheseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
+  CompteRoute: CompteRoute,
+  ApiPublicListerAbonnesRoute: ApiPublicListerAbonnesRoute,
+  ApiPublicPublierSyntheseRoute: ApiPublicPublierSyntheseRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
