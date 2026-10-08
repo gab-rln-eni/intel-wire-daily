@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,7 +30,7 @@ type Apercu = {
   nb_sources_citees?: number;
   nb_sources?: number | null;
   nb_sources_echec?: number | null;
-  sujets: (Sujet & { rang?: number })[];
+  sujets: (Omit<Sujet, "lien"> & { lien?: string | null; rang?: number })[];
 } | null;
 
 function Index() {
@@ -76,18 +76,6 @@ function Index() {
             {data.date_veille === todayParis() ? "Synthèse du jour publiée ce matin" : `Dernière synthèse : ${formatDate(data.date_veille)}`}
           </p>
         )}
-        <div className="mt-6 flex flex-wrap gap-3">
-          {user ? (
-            <Button asChild>
-              <Link to="/compte">Voir ma synthèse</Link>
-            </Button>
-          ) : (
-            <>
-              <Button onClick={() => openLogin("signup")}>Créer un compte</Button>
-              <Button variant="outline" onClick={() => openLogin("signin")}>Se connecter</Button>
-            </>
-          )}
-        </div>
       </section>
 
       {data && data.nb_sujets != null && (
@@ -168,7 +156,7 @@ function Index() {
             <div key={onglet ?? "une"} className="grid gap-4 md:grid-cols-3" aria-live="polite">
               {cartes.map((s, i) => (
                 <div
-                  key={s.lien}
+                  key={`${s.rubrique}-${s.ordre}`}
                   style={{ animationDelay: `${i * 80}ms` }}
                   className="animate-in fade-in-0 slide-in-from-bottom-2 fill-both duration-500 transition-transform hover:-translate-y-1 motion-reduce:animate-none motion-reduce:hover:translate-y-0"
                 >
@@ -179,7 +167,7 @@ function Index() {
           </>
         )}
         <p className="mt-4 text-xs text-muted-foreground">
-          Résumés générés par IA d'après l'extrait de chaque article ; chaque sujet renvoie à l'article d'origine.
+          Résumés générés par IA d'après l'extrait de chaque article. Les liens vers les articles d'origine et la synthèse complète sont réservés aux abonnés.
         </p>
       </section>
     </div>

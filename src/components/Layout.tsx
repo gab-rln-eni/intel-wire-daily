@@ -82,9 +82,14 @@ export function Header() {
           </DropdownMenu>
           </div>
         ) : (
-          <Button size="sm" className="ml-auto sm:ml-0" onClick={() => openLogin("signin")}>
-            Se connecter
-          </Button>
+          <div className="ml-auto flex items-center gap-2 sm:ml-0">
+            <Button size="sm" variant="ghost" onClick={() => openLogin("signin")}>
+              Se connecter
+            </Button>
+            <Button size="sm" onClick={() => openLogin("signup")}>
+              Créer un compte
+            </Button>
+          </div>
         )}
       </div>
     </header>

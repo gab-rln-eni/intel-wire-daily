@@ -1,6 +1,8 @@
 import type { Sujet } from "@/lib/rubriques";
+import { useAuth } from "@/lib/auth";
 
-export function SujetCard({ sujet, exemple }: { sujet: Sujet; exemple?: boolean }) {
+export function SujetCard({ sujet, exemple }: { sujet: Omit<Sujet, "lien"> & { lien?: string | null }; exemple?: boolean }) {
+  const { openLogin } = useAuth();
   return (
     <article className="rounded-lg border border-border bg-card p-5">
       <div className="mb-2 flex items-center justify-between gap-2">
@@ -22,9 +24,15 @@ export function SujetCard({ sujet, exemple }: { sujet: Sujet; exemple?: boolean 
       )}
       <p className="mt-3 text-sm text-muted-foreground">
         {sujet.source} |{" "}
-        <a href={sujet.lien} target="_blank" rel="noopener noreferrer" className="link-accent">
-          Lire l'article ↗<span className="sr-only"> (nouvel onglet)</span>
-        </a>
+        {sujet.lien ? (
+          <a href={sujet.lien} target="_blank" rel="noopener noreferrer" className="link-accent">
+            Lire l'article ↗<span className="sr-only"> (nouvel onglet)</span>
+          </a>
+        ) : (
+          <button type="button" onClick={() => openLogin("signup")} className="link-accent">
+            <span aria-hidden="true">🔒 </span>Lien réservé aux abonnés
+          </button>
+        )}
       </p>
     </article>
   );
