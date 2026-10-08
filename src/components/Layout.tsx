@@ -101,6 +101,7 @@ const DOCS: Record<Exclude<Doc, null>, { title: string; body: ReactNode }> = {
       <>
         <p>Le Fil IA utilise uniquement ce qui est strictement nécessaire à la connexion à votre compte. Aucun bandeau n'est donc requis.</p>
         <p>Aucune mesure d'audience ni aucun traceur tiers n'est utilisé.</p>
+        <p>Les polices de caractères sont chargées depuis Google Fonts : votre navigateur transmet alors votre adresse IP à Google, sans cookie.</p>
       </>
     ),
   },
