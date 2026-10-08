@@ -99,3 +99,8 @@
     text-decoration-color: currentColor;
   }
 }
+
+/* Accueil : les cartes animées restent invisibles pendant leur délai d'apparition */
+@utility fill-both {
+  animation-fill-mode: both;
+}
