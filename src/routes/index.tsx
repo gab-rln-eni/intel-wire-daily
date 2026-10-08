@@ -55,6 +55,23 @@ function Index() {
         </div>
       </section>
 
+      <section aria-labelledby="pourquoi-titre">
+        <h2 id="pourquoi-titre" className="mb-4 text-xl font-semibold text-foreground">Pourquoi Le Fil IA</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            ["Des sources reconnues", "Une vingtaine de sources suivies chaque jour : éditeurs (OpenAI, Google DeepMind, Mistral AI, Hugging Face), régulation (CNIL, AI Act) et médias spécialisés français et anglais."],
+            ["Des liens vérifiables", "Chaque sujet renvoie à l'article d'origine. Les liens sont posés par la chaîne de collecte, jamais par l'IA."],
+            ["Un tri pertinent", "Six rubriques, articles déjà vus écartés, priorité à l'actualité récente. Vous filtrez ce qui vous concerne."],
+            ["Une IA encadrée", "Le résumé est rédigé d'après l'extrait de l'article, sans rien ajouter. Sans résumé fiable, l'extrait est affiché tel quel."],
+          ].map(([t, d]) => (
+            <div key={t} className="rounded-lg border border-border bg-card p-4">
+              <h3 className="text-sm font-semibold text-foreground">{t}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{d}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
       <section aria-labelledby="apercu-titre">
         <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="apercu-titre" className="text-xl font-semibold text-foreground">Aperçu de la dernière synthèse</h2>
