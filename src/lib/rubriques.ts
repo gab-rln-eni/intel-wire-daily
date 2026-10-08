@@ -9,6 +9,9 @@ export const RUBRIQUES = [
 
 export const WEBHOOK_PREFIX = "https://discord.com/api/webhooks/";
 
+// Salon public de diffusion (lecture seule) du serveur Discord Le Fil IA
+export const INVITATION_DISCORD = ""  // lien d'invitation à renseigner ; vide = bouton masqué;
+
 export type Sujet = {
   id?: string;
   rubrique: string;

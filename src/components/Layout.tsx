@@ -88,7 +88,7 @@ const DOCS: Record<Exclude<Doc, null>, { title: string; body: ReactNode }> = {
     title: "Confidentialité",
     body: (
       <>
-        <p><strong>Données traitées :</strong> adresse email, identité du compte Google (si vous l'utilisez pour vous connecter), canal de réception choisi, URL de webhook Discord, rubriques suivies.</p>
+        <p><strong>Données traitées :</strong> adresse email, identité du compte Google (si vous l'utilisez pour vous connecter), canal de réception choisi, rubriques suivies. Si vous choisissez Discord, vous rejoignez le salon public #synthese-du-jour : Discord traite alors votre compte selon ses propres conditions.</p>
         <p><strong>Finalité :</strong> envoi et consultation de la synthèse de veille.</p>
         <p><strong>Conservation :</strong> jusqu'à la suppression de votre compte.</p>
         <p><strong>Vos droits :</strong> accès, rectification et suppression. Vous pouvez supprimer votre compte à tout moment depuis la page Mon compte.</p>

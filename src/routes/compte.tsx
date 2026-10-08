@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { SujetCard } from "@/components/SujetCard";
 import { supprimerCompte } from "@/lib/compte.functions";
-import { RUBRIQUES, WEBHOOK_PREFIX, formatDate, rubriqueIndex, todayParis, type Sujet } from "@/lib/rubriques";
+import { INVITATION_DISCORD, RUBRIQUES, formatDate, rubriqueIndex, todayParis, type Sujet } from "@/lib/rubriques";
 
 export const Route = createFileRoute("/compte")({
   ssr: false,
@@ -158,7 +158,6 @@ function Preferences({ userId }: { userId: string }) {
     },
   });
   const [canal, setCanal] = useState<"email" | "discord">("email");
-  const [webhook, setWebhook] = useState("");
   const [rubriques, setRubriques] = useState<string[]>([...RUBRIQUES]);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [msgR, setMsgR] = useState<{ ok: boolean; text: string } | null>(null);
@@ -166,20 +165,15 @@ function Preferences({ userId }: { userId: string }) {
   useEffect(() => {
     if (profile) {
       setCanal(profile.canal === "discord" ? "discord" : "email");
-      setWebhook(profile.discord_webhook_url ?? "");
       setRubriques(profile.rubriques);
     }
   }, [profile]);
 
   const saveReception = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (canal === "discord" && !webhook.startsWith(WEBHOOK_PREFIX)) {
-      setMsg({ ok: false, text: `L'URL doit commencer par ${WEBHOOK_PREFIX}` });
-      return;
-    }
     const { error } = await supabase
       .from("profiles")
-      .update({ canal, discord_webhook_url: canal === "discord" ? webhook : (webhook || null) })
+      .update({ canal, discord_webhook_url: null })
       .eq("id", userId);
     setMsg(error ? { ok: false, text: "Enregistrement impossible." } : { ok: true, text: "Préférence enregistrée." });
     qc.invalidateQueries({ queryKey: ["profile", userId] });
@@ -211,18 +205,13 @@ function Preferences({ userId }: { userId: string }) {
             </RadioGroup>
           </fieldset>
           {canal === "discord" && (
-            <div className="space-y-1.5">
-              <Label htmlFor="webhook">URL du webhook Discord</Label>
-              <Input
-                id="webhook"
-                type="url"
-                inputMode="url"
-                placeholder={WEBHOOK_PREFIX + "..."}
-                value={webhook}
-                onChange={(e) => setWebhook(e.target.value)}
-                aria-describedby="webhook-aide"
-              />
-              <p id="webhook-aide" className="text-xs text-muted-foreground">Doit commencer par {WEBHOOK_PREFIX}</p>
+            <div className="space-y-1.5 text-sm text-muted-foreground">
+              <p>Chaque matin, la synthèse est publiée dans le salon #synthese-du-jour du serveur Discord Le Fil IA (lecture seule).</p>
+              {INVITATION_DISCORD && (
+                <a href={INVITATION_DISCORD} target="_blank" rel="noopener noreferrer" className="link-accent">
+                  Rejoindre le salon #synthese-du-jour ↗<span className="sr-only"> (nouvel onglet)</span>
+                </a>
+              )}
             </div>
           )}
           {msg && <p role="status" className={`text-sm ${msg.ok ? "text-primary" : "text-destructive"}`}>{msg.text}</p>}
