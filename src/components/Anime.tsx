@@ -14,7 +14,7 @@ export function Apparition({ children, delai = 0, className = "" }: { children: 
     setEtat("cache");
     const obs = new IntersectionObserver(
       ([e]) => {
-        if (e.isIntersecting) {
+        if (e?.isIntersecting) {
           setEtat("visible");
           obs.disconnect();
         }
@@ -22,7 +22,12 @@ export function Apparition({ children, delai = 0, className = "" }: { children: 
       { threshold: 0.15 },
     );
     obs.observe(el);
-    return () => obs.disconnect();
+    // Sécurité : le contenu s'affiche quoi qu'il arrive au bout de 1,2 s
+    const t = window.setTimeout(() => setEtat("visible"), 1200);
+    return () => {
+      obs.disconnect();
+      window.clearTimeout(t);
+    };
   }, []);
   return (
     <div

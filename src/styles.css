@@ -2,15 +2,19 @@
 @source "../src";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is([data-theme="nuit"] *));
 
 @theme inline {
-  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: Consolas, "Cascadia Mono", "SF Mono", Menlo, monospace;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --color-line2: var(--line2);
+  --color-ink3: var(--ink3);
+  --color-accent-soft: var(--accent-soft);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -35,44 +39,76 @@
   --color-warning: var(--warning);
 }
 
-/* Palette: fond #0D1117, cartes #161B22, bordures #30363D, texte #E6EDF3, secondaire #A9B4C0, accent #3DD6C4 */
-:root {
-  --radius: 0.5rem;
-  --background: oklch(0.177 0.012 265);
-  --foreground: oklch(0.94 0.01 240);
-  --card: oklch(0.215 0.013 260);
-  --card-foreground: oklch(0.94 0.01 240);
-  --popover: oklch(0.215 0.013 260);
-  --popover-foreground: oklch(0.94 0.01 240);
-  --primary: oklch(0.8 0.125 180);
-  --primary-foreground: oklch(0.177 0.012 265);
-  --secondary: oklch(0.26 0.013 258);
-  --secondary-foreground: oklch(0.94 0.01 240);
-  --muted: oklch(0.26 0.013 258);
-  --muted-foreground: oklch(0.77 0.02 245);
-  --accent: oklch(0.28 0.02 220);
-  --accent-foreground: oklch(0.94 0.01 240);
-  --destructive: oklch(0.68 0.19 25);
-  --destructive-foreground: oklch(0.177 0.012 265);
-  --success: oklch(0.8 0.125 180);
-  --warning: oklch(0.82 0.13 80);
-  --border: oklch(0.33 0.012 255);
-  --input: oklch(0.33 0.012 255);
-  --ring: oklch(0.8 0.125 180);
+/* Thème G_R. Encre #14171B, papier #F2F0EA, vermillon #B24229 sur papier, #D9603F sur encre.
+   Jour : version normale sur papier. Nuit : version inverse sur encre. Angles droits, pas d'ombre. */
+:root,
+[data-theme="jour"] {
+  --radius: 0px;
+  --background: #F2F0EA;
+  --foreground: #14171B;
+  --card: #FAF9F5;
+  --card-foreground: #14171B;
+  --popover: #FAF9F5;
+  --popover-foreground: #14171B;
+  --primary: #B24229;
+  --primary-foreground: #F2F0EA;
+  --secondary: #EDEAE2;
+  --secondary-foreground: #14171B;
+  --muted: #EDEAE2;
+  --muted-foreground: #5C6169;
+  --accent: #EDEAE2;
+  --accent-foreground: #14171B;
+  --destructive: #B24229;
+  --destructive-foreground: #F2F0EA;
+  --success: #14171B;
+  --warning: #B24229;
+  --border: #DCD8CE;
+  --input: #DCD8CE;
+  --ring: #B24229;
+  --line2: #E7E3DA;
+  --ink3: #6E737B;
+  --accent-soft: rgba(178, 66, 41, 0.13);
+  color-scheme: light;
+}
+
+[data-theme="nuit"] {
+  --background: #0E1115;
+  --foreground: #F2F0EA;
+  --card: #14171B;
+  --card-foreground: #F2F0EA;
+  --popover: #14171B;
+  --popover-foreground: #F2F0EA;
+  --primary: #D9603F;
+  --primary-foreground: #14171B;
+  --secondary: #1A1E24;
+  --secondary-foreground: #F2F0EA;
+  --muted: #1A1E24;
+  --muted-foreground: #A3A9B2;
+  --accent: #1A1E24;
+  --accent-foreground: #F2F0EA;
+  --destructive: #D9603F;
+  --destructive-foreground: #14171B;
+  --success: #F2F0EA;
+  --warning: #D9603F;
+  --border: #272C33;
+  --input: #272C33;
+  --ring: #D9603F;
+  --line2: #1E2228;
+  --ink3: #7D848D;
+  --accent-soft: rgba(217, 96, 63, 0.18);
+  color-scheme: dark;
 }
 
 @layer base {
   * {
     border-color: var(--color-border);
   }
-  html {
-    color-scheme: dark;
-  }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    transition: background-color 0.18s ease, color 0.18s ease;
   }
   :focus-visible {
     outline: 2px solid var(--ring);
@@ -85,10 +121,39 @@
 
 @utility tag-rubrique {
   font-family: var(--font-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--primary);
+}
+
+/* Petit intitulé de section : capitales espacées, gris d'encre */
+@utility label-section {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink3);
+}
+
+/* Trait vermillon de 48 px au-dessus d'un titre (signature du thème) */
+@utility trait-fil {
+  position: relative;
+  padding-top: 0.9rem;
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 48px;
+    height: 2px;
+    background: var(--primary);
+  }
+}
+
+/* Ligne active ou survolée : filet vermillon à gauche */
+@utility filet-actif {
+  box-shadow: inset 3px 0 0 var(--primary);
 }
 
 @utility link-accent {
@@ -103,4 +168,14 @@
 /* Accueil : les cartes animées restent invisibles pendant leur délai d'apparition */
 @utility fill-both {
   animation-fill-mode: both;
+}
+
+/* Grille à filets fins : les cartes sont séparées par un trait d'un pixel, sans marge ni ombre */
+@utility grille-filets {
+  display: grid;
+  padding: 0 1px 1px 0;
+  & > * {
+    border: 1px solid var(--border);
+    margin: 0 -1px -1px 0;
+  }
 }

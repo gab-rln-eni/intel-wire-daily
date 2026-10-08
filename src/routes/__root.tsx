@@ -38,11 +38,11 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
               router.invalidate();
               reset();
             }}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+            className="bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
           >
             Réessayer
           </button>
-          <a href="/" className="rounded-md border border-border px-4 py-2 text-sm text-foreground">
+          <a href="/" className="border border-border px-4 py-2 text-sm text-foreground">
             Accueil
           </a>
         </div>
@@ -62,12 +62,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap",
-      },
     ],
   }),
   shellComponent: RootShell,
@@ -78,8 +72,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="fr">
+    <html lang="fr" data-theme="jour" suppressHydrationWarning>
       <head>
+        {/* Thème jour ou nuit appliqué avant l'affichage, sans flash : choix mémorisé, sinon réglage du système */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{var t=localStorage.getItem('theme');if(t!=='jour'&&t!=='nuit')t=matchMedia('(prefers-color-scheme: dark)').matches?'nuit':'jour';document.documentElement.setAttribute('data-theme',t)}catch(e){}",
+          }}
+        />
         <HeadContent />
       </head>
       <body>
@@ -95,7 +96,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <a href="#contenu" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:rounded focus:bg-card focus:px-3 focus:py-2">
+        <a href="#contenu" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:bg-card focus:px-3 focus:py-2">
           Aller au contenu
         </a>
         <Header />

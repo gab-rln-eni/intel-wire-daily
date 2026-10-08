@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,8 +13,51 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
-const navCls = "rounded px-2 py-1 text-sm text-muted-foreground hover:text-foreground";
-const activeCls = { className: "rounded px-2 py-1 text-sm text-foreground font-medium" };
+const navBase = "relative px-2 py-1.5 text-sm transition-colors after:absolute after:inset-x-2 after:-bottom-[13px] after:h-0.5 after:transition-colors";
+const navCls = `${navBase} text-muted-foreground hover:text-foreground after:bg-transparent hover:after:bg-border`;
+const activeCls = { className: `${navBase} font-semibold text-foreground after:bg-primary` };
+
+/** Marque Le Fil IA : un cadre d'encre traversé par le fil vermillon. */
+export function Marque({ className = "h-6 w-6" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 64 64" className={className} aria-hidden="true" focusable="false">
+      <rect x="4" y="4" width="56" height="56" fill="none" stroke="currentColor" strokeWidth="4" />
+      <rect x="0" y="40" width="64" height="6" className="fill-primary" />
+    </svg>
+  );
+}
+
+/** Sélecteur Jour | Nuit : le choix est mémorisé dans le navigateur (préférence demandée, sans cookie). */
+function ThemeSwitch() {
+  const [theme, setTheme] = useState<"jour" | "nuit">("jour");
+  useEffect(() => {
+    setTheme(document.documentElement.getAttribute("data-theme") === "nuit" ? "nuit" : "jour");
+  }, []);
+  const choisir = (t: "jour" | "nuit") => {
+    setTheme(t);
+    document.documentElement.setAttribute("data-theme", t);
+    try {
+      localStorage.setItem("theme", t);
+    } catch {
+      /* stockage indisponible : le choix vaut pour la page en cours */
+    }
+  };
+  return (
+    <div role="group" aria-label="Thème d'affichage" className="flex border border-border bg-card">
+      {(["jour", "nuit"] as const).map((t) => (
+        <button
+          key={t}
+          type="button"
+          aria-pressed={theme === t}
+          onClick={() => choisir(t)}
+          className={`min-h-8 px-3 text-xs tracking-wide transition-colors ${theme === t ? "bg-foreground font-semibold text-background" : "text-ink3 hover:text-foreground"}`}
+        >
+          {t === "jour" ? "Jour" : "Nuit"}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export function Header() {
   const { user, isAdmin, openLogin } = useAuth();
@@ -26,14 +69,17 @@ export function Header() {
     "aria-current": vue === v ? ("page" as const) : undefined,
   });
   return (
-    <header className="border-b border-border">
-      <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-        <Link to={user ? "/compte" : "/"} className="font-mono text-base font-semibold text-foreground">
-          Le Fil <span className="text-primary">IA</span>
+    <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
+      <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3">
+        <Link to={user ? "/compte" : "/"} className="flex items-center gap-2.5 text-foreground">
+          <Marque />
+          <span className="text-[15px] font-semibold tracking-tight">
+            Le Fil <span className="font-mono text-primary">IA</span>
+          </span>
         </Link>
         <nav
           aria-label="Navigation principale"
-          className="order-last flex w-full items-center gap-1 sm:order-none sm:w-auto sm:flex-1"
+          className="order-last -mx-2 flex flex-1 items-center gap-1 sm:order-none sm:mx-0"
         >
           {user ? (
             <>
@@ -58,8 +104,13 @@ export function Header() {
             </Link>
           )}
         </nav>
+        {/* Sur téléphone, le sélecteur de thème passe sur la ligne des liens */}
+        <div className="order-last ml-auto sm:order-none sm:ml-0">
+          <ThemeSwitch />
+        </div>
+        <div className="ml-auto flex items-center gap-2 sm:ml-0">
         {user ? (
-          <div className="ml-auto sm:ml-0">
+          <div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" aria-label="Menu du compte">
@@ -82,7 +133,7 @@ export function Header() {
           </DropdownMenu>
           </div>
         ) : (
-          <div className="ml-auto flex items-center gap-2 sm:ml-0">
+          <div className="flex items-center gap-2">
             <Button size="sm" variant="ghost" onClick={() => openLogin("signin")}>
               Se connecter
             </Button>
@@ -91,6 +142,7 @@ export function Header() {
             </Button>
           </div>
         )}
+        </div>
       </div>
     </header>
   );
@@ -126,7 +178,7 @@ const DOCS: Record<Exclude<Doc, null>, { title: string; body: ReactNode }> = {
       <>
         <p>Le Fil IA utilise uniquement ce qui est strictement nécessaire à la connexion à votre compte. Aucun bandeau n'est donc requis.</p>
         <p>Aucune mesure d'audience ni aucun traceur tiers n'est utilisé.</p>
-        <p>Les polices de caractères sont chargées depuis Google Fonts : votre navigateur transmet alors votre adresse IP à Google, sans cookie.</p>
+        <p>Aucune police ni ressource n'est chargée depuis un service tiers. Votre choix de thème jour ou nuit est conservé dans votre navigateur (stockage local), sans cookie et sans transmission.</p>
       </>
     ),
   },
@@ -134,22 +186,25 @@ const DOCS: Record<Exclude<Doc, null>, { title: string; body: ReactNode }> = {
 
 export function Footer() {
   const [doc, setDoc] = useState<Doc>(null);
-  const btn = "rounded text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
+  const btn = "text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
   return (
-    <footer className="mt-16 border-t border-border bg-card/40">
+    <footer className="mt-16 border-t border-border">
       <div className="mx-auto grid max-w-5xl gap-6 px-4 py-8 text-sm sm:grid-cols-3">
         <div>
-          <p className="font-mono font-semibold text-foreground">Le Fil <span className="text-primary">IA</span></p>
+          <p className="flex items-center gap-2 font-semibold text-foreground">
+            <Marque className="h-5 w-5" />
+            <span>Le Fil <span className="font-mono text-primary">IA</span></span>
+          </p>
           <p className="mt-2 text-muted-foreground">La veille IA triée et sourcée, chaque matin, par e-mail ou sur Discord.</p>
         </div>
         <nav aria-label="Informations légales" className="flex flex-col items-start gap-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-foreground">Informations</p>
+          <p className="label-section">Informations</p>
           <button type="button" className={btn} onClick={() => setDoc("mentions")}>Mentions légales</button>
           <button type="button" className={btn} onClick={() => setDoc("confidentialite")}>Confidentialité</button>
           <button type="button" className={btn} onClick={() => setDoc("cookies")}>Cookies</button>
         </nav>
         <div className="text-muted-foreground sm:text-right">
-          <p>© 2026 Le Fil IA</p>
+          <p className="font-mono text-xs">© 2026 Le Fil IA</p>
           <p className="mt-1">Projet de démonstration</p>
         </div>
       </div>
