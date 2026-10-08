@@ -23,8 +23,14 @@ import { SujetCard } from "@/components/SujetCard";
 import { supprimerCompte } from "@/lib/compte.functions";
 import { INVITATION_DISCORD, RUBRIQUES, formatDate, rubriqueIndex, todayParis, type Sujet } from "@/lib/rubriques";
 
+type Vue = "historique" | "donnees";
+
 export const Route = createFileRoute("/compte")({
   ssr: false,
+  validateSearch: (s: Record<string, unknown>): { vue?: Vue; id?: string } => ({
+    vue: s.vue === "historique" || s.vue === "donnees" ? s.vue : undefined,
+    id: typeof s.id === "string" ? s.id : undefined,
+  }),
   beforeLoad: async () => {
     const { data } = await supabase.auth.getUser();
     if (!data.user) throw redirect({ to: "/" });
@@ -47,7 +53,8 @@ const card = "rounded-lg border border-border bg-card p-5";
 
 function Compte() {
   const { userId } = Route.useRouteContext();
-  const [selected, setSelected] = useState<string | null>(null);
+  const { vue, id: selected } = Route.useSearch();
+  const navigate = useNavigate({ from: "/compte" });
   const [filtre, setFiltre] = useState<string | null>(null);
 
   const { data: syntheses = [] } = useQuery({
@@ -64,6 +71,7 @@ function Compte() {
   });
 
   const current = syntheses.find((s) => s.id === selected) ?? syntheses[0];
+  useEffect(() => setFiltre(null), [current?.id]);
 
   const { data: sujets = [] } = useQuery({
     queryKey: ["sujets", current?.id],
@@ -90,78 +98,105 @@ function Compte() {
       : `Synthèse du ${formatDate(current.date_veille)}`
     : "Synthèse";
 
-  return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_300px]">
-      <div className="space-y-8">
-        <section aria-labelledby="synthese-titre">
-          <h1 id="synthese-titre" className="text-2xl font-bold text-foreground">{titre}</h1>
-          {current ? (
-            <>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {formatDate(current.date_veille)}
-                {current.nb_sources != null &&
-                  ` | ${current.nb_sources - (current.nb_sources_echec ?? 0)} sources lues sur ${current.nb_sources}`}
-                {current.nb_articles != null && ` | ${current.nb_articles} articles analysés`}
-              </p>
-              {presentes.length > 1 && (
-                <div role="group" aria-label="Filtrer par rubrique" className="mt-4 flex flex-wrap gap-2">
-                  {[null, ...presentes].map((r) => (
-                    <button
-                      key={r ?? "toutes"}
-                      type="button"
-                      aria-pressed={filtre === r}
-                      onClick={() => setFiltre(r)}
-                      className={`rounded-full border px-3 py-1 text-xs ${filtre === r ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:text-foreground"}`}
-                    >
-                      {r ?? "Toutes"} ({r ? sujets.filter((s) => s.rubrique === r).length : sujets.length})
-                    </button>
-                  ))}
-                </div>
-              )}
-              <div className="mt-6 space-y-6">
-                {groupes.map((r) => (
-                  <div key={r}>
-                    <h2 className="mb-3 text-sm font-semibold text-foreground">{r}</h2>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      {visibles.filter((s) => s.rubrique === r).map((s) => (
-                        <SujetCard key={s.id} sujet={s} exemple={current.exemple} />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-                {sujets.length === 0 && <p className="text-sm text-muted-foreground">Aucun sujet.</p>}
-              </div>
-            </>
-          ) : (
-            <p className="mt-2 text-sm text-muted-foreground">Aucune synthèse envoyée pour le moment.</p>
-          )}
-        </section>
+  if (vue === "donnees") {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Mes données</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Vos préférences de réception, vos rubriques et la gestion de votre compte.</p>
+        </div>
+        <div className="grid items-start gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <Preferences userId={userId} />
+          <MesDonnees />
+        </div>
+      </div>
+    );
+  }
 
-        <section aria-labelledby="historique-titre" className={card}>
-          <h2 id="historique-titre" className="text-lg font-semibold text-foreground">Historique</h2>
-          <ul className="mt-3 divide-y divide-border">
-            {syntheses.map((s) => (
+  if (vue === "historique") {
+    return (
+      <section aria-labelledby="historique-titre" className="space-y-6">
+        <div>
+          <h1 id="historique-titre" className="text-2xl font-bold text-foreground">Historique</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Toutes les synthèses publiées, de la plus récente à la plus ancienne.</p>
+        </div>
+        {syntheses.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Aucune synthèse envoyée pour le moment.</p>
+        ) : (
+          <ul className={`${card} divide-y divide-border p-0`}>
+            {syntheses.map((s, i) => (
               <li key={s.id}>
                 <button
                   type="button"
-                  onClick={() => { setSelected(s.id); setFiltre(null); }}
-                  aria-current={s.id === current?.id ? "true" : undefined}
-                  className={`w-full py-2 text-left text-sm ${s.id === current?.id ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                  onClick={() => navigate({ search: i === 0 ? {} : { id: s.id } })}
+                  className="flex w-full items-center justify-between gap-4 px-5 py-3 text-left text-sm hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
-                  {formatDate(s.date_veille)}
-                  {s.exemple && " (exemple)"}
+                  <span className="font-medium text-foreground">
+                    {formatDate(s.date_veille)}
+                    {s.exemple && <span className="font-normal text-muted-foreground"> (exemple)</span>}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {s.nb_articles != null ? `${s.nb_articles} articles analysés` : ""}
+                    <span aria-hidden="true"> →</span>
+                  </span>
                 </button>
               </li>
             ))}
           </ul>
-        </section>
-      </div>
+        )}
+      </section>
+    );
+  }
 
-      <aside className="space-y-6 lg:sticky lg:top-4 lg:self-start">
-        <Preferences userId={userId} />
-        <MesDonnees />
-      </aside>
-    </div>
+  return (
+      <section aria-labelledby="synthese-titre">
+        <h1 id="synthese-titre" className="text-2xl font-bold text-foreground">{titre}</h1>
+        {current ? (
+          <>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {formatDate(current.date_veille)}
+              {current.nb_sources != null &&
+                ` | ${current.nb_sources - (current.nb_sources_echec ?? 0)} sources lues sur ${current.nb_sources}`}
+              {current.nb_articles != null && ` | ${current.nb_articles} articles analysés`}
+            </p>
+            {presentes.length > 1 && (
+              <div role="group" aria-label="Filtrer par rubrique" className="mt-4 flex flex-wrap gap-2">
+                {[null, ...presentes].map((r) => (
+                  <button
+                    key={r ?? "toutes"}
+                    type="button"
+                    aria-pressed={filtre === r}
+                    onClick={() => setFiltre(r)}
+                    className={`rounded-full border px-3 py-1 text-xs ${filtre === r ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:text-foreground"}`}
+                  >
+                    {r ?? "Toutes"} ({r ? sujets.filter((s) => s.rubrique === r).length : sujets.length})
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="mt-6 space-y-6">
+              {groupes.map((r) => (
+                <div key={r}>
+                  <h2 className="mb-3 text-sm font-semibold text-foreground">{r}</h2>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {visibles.filter((s) => s.rubrique === r).map((s) => (
+                      <SujetCard key={s.id} sujet={s} exemple={current.exemple} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {sujets.length === 0 && <p className="text-sm text-muted-foreground">Aucun sujet.</p>}
+            </div>
+            {!isLatest && (
+              <button type="button" className="link-accent mt-6 text-sm" onClick={() => navigate({ search: {} })}>
+                Revenir à la dernière synthèse
+              </button>
+            )}
+          </>
+        ) : (
+          <p className="mt-2 text-sm text-muted-foreground">Aucune synthèse envoyée pour le moment.</p>
+        )}
+      </section>
   );
 }
 

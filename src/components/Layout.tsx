@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -19,19 +19,37 @@ const activeCls = { className: "rounded px-2 py-1 text-sm text-foreground font-m
 export function Header() {
   const { user, isAdmin, openLogin } = useAuth();
   const navigate = useNavigate();
+  const loc = useRouterState({ select: (s) => s.location });
+  const vue = loc.pathname === "/compte" ? ((loc.search as { vue?: string }).vue ?? "synthese") : null;
+  const item = (v: string) => ({
+    className: vue === v ? activeCls.className : navCls,
+    "aria-current": vue === v ? ("page" as const) : undefined,
+  });
   return (
     <header className="border-b border-border">
-      <div className="mx-auto flex max-w-5xl items-center gap-4 px-4 py-3">
-        <Link to="/" className="font-mono text-base font-semibold text-foreground">
+      <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+        <Link to={user ? "/compte" : "/"} className="font-mono text-base font-semibold text-foreground">
           Le Fil <span className="text-primary">IA</span>
         </Link>
-        <nav aria-label="Navigation principale" className="flex flex-1 items-center gap-1">
-          <Link to="/" className={navCls} activeProps={activeCls} activeOptions={{ exact: true }}>
-            Accueil
-          </Link>
-          {user && (
-            <Link to="/compte" className={navCls} activeProps={activeCls}>
-              Mon compte
+        <nav
+          aria-label="Navigation principale"
+          className="order-last flex w-full items-center gap-1 sm:order-none sm:w-auto sm:flex-1"
+        >
+          {user ? (
+            <>
+              <Link to="/compte" search={{}} {...item("synthese")}>
+                Synthèse
+              </Link>
+              <Link to="/compte" search={{ vue: "historique" }} {...item("historique")}>
+                Historique
+              </Link>
+              <Link to="/compte" search={{ vue: "donnees" }} {...item("donnees")}>
+                Mes données
+              </Link>
+            </>
+          ) : (
+            <Link to="/" className={navCls} activeProps={activeCls} activeOptions={{ exact: true }}>
+              Accueil
             </Link>
           )}
           {isAdmin && (
@@ -41,6 +59,7 @@ export function Header() {
           )}
         </nav>
         {user ? (
+          <div className="ml-auto sm:ml-0">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" aria-label="Menu du compte">
@@ -50,7 +69,7 @@ export function Header() {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel className="font-normal text-muted-foreground">{user.email}</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => navigate({ to: "/compte" })}>Mon compte</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => navigate({ to: "/compte", search: { vue: "donnees" } })}>Mes données</DropdownMenuItem>
               <DropdownMenuItem
                 onSelect={async () => {
                   await supabase.auth.signOut();
@@ -61,8 +80,9 @@ export function Header() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         ) : (
-          <Button size="sm" onClick={() => openLogin("signin")}>
+          <Button size="sm" className="ml-auto sm:ml-0" onClick={() => openLogin("signin")}>
             Se connecter
           </Button>
         )}

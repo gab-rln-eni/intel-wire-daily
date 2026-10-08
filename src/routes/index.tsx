@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -23,7 +24,12 @@ export const Route = createFileRoute("/")({
 type Apercu = { date_veille: string; exemple: boolean; sujets: Sujet[] } | null;
 
 function Index() {
-  const { user, openLogin } = useAuth();
+  const { user, ready, openLogin } = useAuth();
+  const navigate = useNavigate();
+  // Une fois connecté, l'abonné arrive directement sur sa synthèse.
+  useEffect(() => {
+    if (ready && user) navigate({ to: "/compte", replace: true });
+  }, [ready, user, navigate]);
   const { data, isLoading } = useQuery({
     queryKey: ["apercu"],
     queryFn: async () => {
