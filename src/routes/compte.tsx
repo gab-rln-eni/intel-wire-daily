@@ -97,8 +97,8 @@ function Compte() {
               <p className="mt-1 text-sm text-muted-foreground">
                 {formatDate(current.date_veille)}
                 {current.nb_sources != null &&
-                  ` · ${current.nb_sources - (current.nb_sources_echec ?? 0)} sources lues sur ${current.nb_sources}`}
-                {current.nb_articles != null && ` · ${current.nb_articles} articles analysés`}
+                  ` | ${current.nb_sources - (current.nb_sources_echec ?? 0)} sources lues sur ${current.nb_sources}`}
+                {current.nb_articles != null && ` | ${current.nb_articles} articles analysés`}
               </p>
               <div className="mt-6 space-y-6">
                 {groupes.map((r) => (
@@ -217,7 +217,7 @@ function Preferences({ userId }: { userId: string }) {
                 id="webhook"
                 type="url"
                 inputMode="url"
-                placeholder={WEBHOOK_PREFIX + "…"}
+                placeholder={WEBHOOK_PREFIX + "..."}
                 value={webhook}
                 onChange={(e) => setWebhook(e.target.value)}
                 aria-describedby="webhook-aide"

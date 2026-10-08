@@ -89,10 +89,10 @@ function Admin() {
       {note && <p role="status" className="text-sm text-primary">{note}</p>}
 
       <section aria-label="Compteurs" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Abonnés" value={String(data?.profils.length ?? "…")} />
+        <Stat label="Abonnés" value={String(data?.profils.length ?? "...")} />
         <Stat label="Dernière synthèse" value={derniere ? formatDate(derniere.date_veille) : "Aucune"} />
         <Stat label="Sources lues" value={lues(derniere)} />
-        <Stat label="Sujets du jour" value={String(data?.sujetsJour ?? "…")} />
+        <Stat label="Sujets du jour" value={String(data?.sujetsJour ?? "...")} />
       </section>
 
       <section aria-labelledby="journal">

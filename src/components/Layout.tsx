@@ -79,8 +79,8 @@ const DOCS: Record<Exclude<Doc, null>, { title: string; body: ReactNode }> = {
     body: (
       <>
         <p><strong>Éditeur :</strong> Le Fil IA, projet de démonstration.</p>
-        <p><strong>Contact :</strong> via le dépôt GitHub du projet.</p>
-        <p><strong>Hébergeur :</strong> à compléter.</p>
+        <p><strong>Contact :</strong> via le{" "}<a href="https://github.com/gab-rln-eni/intel-wire-daily" target="_blank" rel="noopener noreferrer" className="link-accent">dépôt GitHub du projet<span className="sr-only"> (nouvel onglet)</span></a>.</p>
+        <p><strong>Hébergement :</strong> plateforme Lovable (lovable.dev). Société désignée par sa politique de confidentialité : Lovable Labs Sweden AB, Regeringsgatan 25, 111 53 Stockholm, Suède.</p>
       </>
     ),
   },

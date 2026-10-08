@@ -61,7 +61,7 @@ function Index() {
           {data && <p className="text-sm text-muted-foreground">{formatDate(data.date_veille)}</p>}
         </div>
         {isLoading ? (
-          <p className="text-sm text-muted-foreground">Chargement…</p>
+          <p className="text-sm text-muted-foreground">Chargement...</p>
         ) : !data || data.sujets.length === 0 ? (
           <p className="text-sm text-muted-foreground">Aucune synthèse envoyée pour le moment.</p>
         ) : (
