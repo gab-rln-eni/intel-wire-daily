@@ -48,6 +48,7 @@ const card = "rounded-lg border border-border bg-card p-5";
 function Compte() {
   const { userId } = Route.useRouteContext();
   const [selected, setSelected] = useState<string | null>(null);
+  const [filtre, setFiltre] = useState<string | null>(null);
 
   const { data: syntheses = [] } = useQuery({
     queryKey: ["syntheses-envoyees"],
@@ -79,7 +80,9 @@ function Compte() {
     },
   });
 
-  const groupes = [...new Set(sujets.map((s) => s.rubrique))].sort((a, b) => rubriqueIndex(a) - rubriqueIndex(b));
+  const presentes = [...new Set(sujets.map((s) => s.rubrique))].sort((a, b) => rubriqueIndex(a) - rubriqueIndex(b));
+  const visibles = filtre ? sujets.filter((s) => s.rubrique === filtre) : sujets;
+  const groupes = presentes.filter((r) => !filtre || r === filtre);
   const isLatest = current && current.id === syntheses[0]?.id;
   const titre = current
     ? isLatest && current.date_veille === todayParis()
@@ -100,12 +103,27 @@ function Compte() {
                   ` | ${current.nb_sources - (current.nb_sources_echec ?? 0)} sources lues sur ${current.nb_sources}`}
                 {current.nb_articles != null && ` | ${current.nb_articles} articles analysés`}
               </p>
+              {presentes.length > 1 && (
+                <div role="group" aria-label="Filtrer par rubrique" className="mt-4 flex flex-wrap gap-2">
+                  {[null, ...presentes].map((r) => (
+                    <button
+                      key={r ?? "toutes"}
+                      type="button"
+                      aria-pressed={filtre === r}
+                      onClick={() => setFiltre(r)}
+                      className={`rounded-full border px-3 py-1 text-xs ${filtre === r ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:text-foreground"}`}
+                    >
+                      {r ?? "Toutes"} ({r ? sujets.filter((s) => s.rubrique === r).length : sujets.length})
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="mt-6 space-y-6">
                 {groupes.map((r) => (
                   <div key={r}>
                     <h2 className="mb-3 text-sm font-semibold text-foreground">{r}</h2>
-                    <div className="grid gap-3">
-                      {sujets.filter((s) => s.rubrique === r).map((s) => (
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {visibles.filter((s) => s.rubrique === r).map((s) => (
                         <SujetCard key={s.id} sujet={s} exemple={current.exemple} />
                       ))}
                     </div>
@@ -126,7 +144,7 @@ function Compte() {
               <li key={s.id}>
                 <button
                   type="button"
-                  onClick={() => setSelected(s.id)}
+                  onClick={() => { setSelected(s.id); setFiltre(null); }}
                   aria-current={s.id === current?.id ? "true" : undefined}
                   className={`w-full py-2 text-left text-sm ${s.id === current?.id ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
                 >
@@ -139,7 +157,7 @@ function Compte() {
         </section>
       </div>
 
-      <aside className="space-y-6">
+      <aside className="space-y-6 lg:sticky lg:top-4 lg:self-start">
         <Preferences userId={userId} />
         <MesDonnees />
       </aside>
