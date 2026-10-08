@@ -61,8 +61,10 @@ function Index() {
   }
 
   return (
-    <div className="space-y-12">
-      <section className="max-w-2xl pt-4">
+    <div className="space-y-14">
+      {/* Ligne 1 : accroche à gauche, chiffres du jour à droite */}
+      <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-12">
+      <section className="pt-4">
         <div className="trait-fil">
           <p className="label-section">Veille IA quotidienne</p>
         </div>
@@ -84,14 +86,14 @@ function Index() {
       </section>
 
       {data && data.nb_sujets != null && (
-        <section aria-label="La synthèse du jour en chiffres" className="grille-filets grid-cols-2 sm:grid-cols-4">
+        <section aria-label="La synthèse du jour en chiffres" className="grille-filets grid-cols-2">
           {[
             [data.nb_sujets, "sujets retenus"],
             [data.nb_rubriques ?? 0, "rubriques couvertes"],
             [data.nb_sources_citees ?? 0, "sources citées"],
             [(data.nb_sources ?? 0) - (data.nb_sources_echec ?? 0), "flux surveillés"],
           ].map(([v, l], i) => (
-            <div key={l as string} className="bg-card px-5 py-4">
+            <div key={l as string} className="bg-card px-5 py-5">
               <Apparition delai={i * 90}>
                 <p className="font-mono text-3xl font-semibold text-foreground tabular-nums">
                   <Compteur valeur={v as number} />
@@ -102,16 +104,25 @@ function Index() {
           ))}
         </section>
       )}
+      </div>
 
-      <section aria-labelledby="pourquoi-titre">
+      {/* Ligne 2 : argument à gauche, quatre bénéfices à droite */}
+      <section aria-labelledby="pourquoi-titre" className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)] lg:gap-12">
+        <div className="lg:sticky lg:top-24">
         <div className="trait-fil">
           <p className="label-section">Pourquoi s'abonner</p>
           <h2 id="pourquoi-titre" className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Votre veille IA, sans le bruit</h2>
         </div>
-        <p className="mt-2 max-w-2xl text-muted-foreground">
+        <p className="mt-3 text-muted-foreground">
           Des dizaines d'annonces paraissent chaque jour. Le Fil IA les lit pour vous et ne garde que l'essentiel, prêt à lire avant votre premier café.
         </p>
-        <div className="grille-filets mt-6 sm:grid-cols-2">
+        {!user && (
+          <div className="mt-6">
+            <Button onClick={() => openLogin("signup")}>Recevoir la synthèse demain matin</Button>
+          </div>
+        )}
+        </div>
+        <div className="grille-filets sm:grid-cols-2">
           {[
             ["01", "Deux minutes au lieu d'une heure", "Une quinzaine de sujets par jour au plus, chacun résumé en deux phrases. Vous savez ce qui compte, sans parcourir vingt sites."],
             ["02", "Des sources qui font autorité", "OpenAI, Google DeepMind, Mistral AI, Hugging Face, la CNIL, la lettre de l'AI Act et des médias tech de référence, en français et en anglais."],
@@ -129,11 +140,6 @@ function Index() {
             </div>
           ))}
         </div>
-        {!user && (
-          <div className="mt-6">
-            <Button onClick={() => openLogin("signup")}>Recevoir la synthèse demain matin</Button>
-          </div>
-        )}
       </section>
 
       <section aria-labelledby="apercu-titre">

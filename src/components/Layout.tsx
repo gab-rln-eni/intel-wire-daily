@@ -77,33 +77,32 @@ export function Header() {
             Le Fil <span className="font-mono text-primary">IA</span>
           </span>
         </Link>
-        <nav
-          aria-label="Navigation principale"
-          className="order-last -mx-2 flex flex-1 items-center gap-1 sm:order-none sm:mx-0"
-        >
-          {user ? (
-            <>
-              <Link to="/compte" search={{}} {...item("synthese")}>
-                Synthèse
+        {/* Visiteur : pas de liens, le logo ramène à l'accueil */}
+        {user ? (
+          <nav
+            aria-label="Navigation principale"
+            className="order-last -mx-2 flex flex-1 items-center gap-1 sm:order-none sm:mx-0"
+          >
+              <>
+                <Link to="/compte" search={{}} {...item("synthese")}>
+                  Synthèse
+                </Link>
+                <Link to="/compte" search={{ vue: "historique" }} {...item("historique")}>
+                  Historique
+                </Link>
+                <Link to="/compte" search={{ vue: "donnees" }} {...item("donnees")}>
+                  Mes données
+                </Link>
+              </>
+            {isAdmin && (
+              <Link to="/admin" className={navCls} activeProps={activeCls}>
+                Admin
               </Link>
-              <Link to="/compte" search={{ vue: "historique" }} {...item("historique")}>
-                Historique
-              </Link>
-              <Link to="/compte" search={{ vue: "donnees" }} {...item("donnees")}>
-                Mes données
-              </Link>
-            </>
-          ) : (
-            <Link to="/" className={navCls} activeProps={activeCls} activeOptions={{ exact: true }}>
-              Accueil
-            </Link>
-          )}
-          {isAdmin && (
-            <Link to="/admin" className={navCls} activeProps={activeCls}>
-              Admin
-            </Link>
-          )}
-        </nav>
+            )}
+          </nav>
+        ) : (
+          <div className="flex-1" />
+        )}
         {/* Sur téléphone, le sélecteur de thème passe sur la ligne des liens */}
         <div className="order-last ml-auto sm:order-none sm:ml-0">
           <ThemeSwitch />
