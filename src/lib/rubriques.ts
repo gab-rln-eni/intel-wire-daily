@@ -52,5 +52,5 @@ export function formatDateTime(d: string | null) {
 export function maskEmail(e: string | null) {
   if (!e) return "Inconnu";
   const [u, d] = e.split("@");
-  return `${u.slice(0, 1)}***@${d ?? ""}`;
+  return `${(u ?? "").slice(0, 1)}***@${d ?? ""}`;
 }
