@@ -176,7 +176,7 @@ const DOCS: Record<Exclude<Doc, null>, { title: string; body: ReactNode }> = {
     body: (
       <>
         <p>Le Fil IA utilise uniquement ce qui est strictement nécessaire à la connexion à votre compte. Aucun bandeau n'est donc requis.</p>
-        <p>Aucune mesure d'audience ni aucun traceur tiers n'est utilisé.</p>
+        <p>Aucune publicité ni aucun traceur publicitaire n'est utilisé. La plateforme d'hébergement (Lovable) mesure la fréquentation du site de façon globale, depuis le même domaine.</p>
         <p>Aucune police ni ressource n'est chargée depuis un service tiers. Votre choix de thème jour ou nuit est conservé dans votre navigateur (stockage local), sans cookie et sans transmission.</p>
       </>
     ),
@@ -185,26 +185,49 @@ const DOCS: Record<Exclude<Doc, null>, { title: string; body: ReactNode }> = {
 
 export function Footer() {
   const [doc, setDoc] = useState<Doc>(null);
-  const btn = "text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
+  const { user, openLogin } = useAuth();
+  const lien = "w-fit text-sm text-muted-foreground transition-colors hover:text-foreground";
   return (
-    <footer className="mt-16 border-t border-border">
-      <div className="mx-auto grid max-w-5xl gap-6 px-4 py-8 text-sm sm:grid-cols-3">
-        <div>
-          <p className="flex items-center gap-2 font-semibold text-foreground">
+    <footer className="mt-20 border-t border-border">
+      <div className="mx-auto grid max-w-5xl gap-10 px-4 py-10 sm:grid-cols-2 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="sm:col-span-2 md:col-span-1">
+          <p className="flex items-center gap-2.5 font-semibold text-foreground">
             <Marque className="h-5 w-5" />
             <span>Le Fil <span className="font-mono text-primary">IA</span></span>
           </p>
-          <p className="mt-2 text-muted-foreground">La veille IA triée et sourcée, chaque matin, par e-mail ou sur Discord.</p>
+          <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted-foreground">
+            La veille IA triée et sourcée, chaque matin, par e-mail ou sur Discord.
+          </p>
         </div>
-        <nav aria-label="Informations légales" className="flex flex-col items-start gap-2">
-          <p className="label-section">Informations</p>
-          <button type="button" className={btn} onClick={() => setDoc("mentions")}>Mentions légales</button>
-          <button type="button" className={btn} onClick={() => setDoc("confidentialite")}>Confidentialité</button>
-          <button type="button" className={btn} onClick={() => setDoc("cookies")}>Cookies</button>
+        <nav aria-label="Le service" className="flex flex-col gap-2.5">
+          <p className="label-section mb-1">Le service</p>
+          {user ? (
+            <>
+              <Link to="/compte" search={{}} className={lien}>Synthèse du jour</Link>
+              <Link to="/compte" search={{ vue: "historique" }} className={lien}>Historique</Link>
+              <Link to="/compte" search={{ vue: "donnees" }} className={lien}>Mes données</Link>
+            </>
+          ) : (
+            <>
+              <button type="button" className={`${lien} text-left`} onClick={() => openLogin("signup")}>Créer un compte</button>
+              <button type="button" className={`${lien} text-left`} onClick={() => openLogin("signin")}>Se connecter</button>
+            </>
+          )}
         </nav>
-        <div className="text-muted-foreground sm:text-right">
-          <p className="font-mono text-xs">© 2026 Le Fil IA</p>
-          <p className="mt-1">Projet de démonstration</p>
+        <nav aria-label="Informations légales" className="flex flex-col gap-2.5">
+          <p className="label-section mb-1">Informations</p>
+          <button type="button" className={`${lien} text-left`} onClick={() => setDoc("mentions")}>Mentions légales</button>
+          <button type="button" className={`${lien} text-left`} onClick={() => setDoc("confidentialite")}>Confidentialité</button>
+          <button type="button" className={`${lien} text-left`} onClick={() => setDoc("cookies")}>Cookies</button>
+          <a href="https://github.com/gab-rln-eni/intel-wire-daily" target="_blank" rel="noopener noreferrer" className={lien}>
+            Code source ↗<span className="sr-only"> (nouvel onglet)</span>
+          </a>
+        </nav>
+      </div>
+      <div className="border-t border-line2">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-1 px-4 py-4 font-mono text-xs text-ink3">
+          <span>© 2026 Le Fil IA</span>
+          <span>Projet de démonstration | Sans publicité</span>
         </div>
       </div>
       <Dialog open={doc !== null} onOpenChange={(o) => !o && setDoc(null)}>
