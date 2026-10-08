@@ -104,7 +104,7 @@ function Admin() {
                 <TableHead>Date</TableHead>
                 <TableHead>Statut</TableHead>
                 <TableHead>Sources lues</TableHead>
-                <TableHead>Articles analysés</TableHead>
+                <TableHead>Entrées de flux lues</TableHead>
                 <TableHead>Sujets retenus</TableHead>
                 <TableHead>Résumés</TableHead>
               </TableRow>

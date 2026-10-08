@@ -62,7 +62,7 @@ function Compte() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("syntheses")
-        .select("id, date_veille, exemple, nb_sources, nb_sources_echec, nb_articles")
+        .select("id, date_veille, exemple, nb_sources, nb_sources_echec, nb_articles, nb_sujets")
         .eq("statut", "envoyee")
         .order("date_veille", { ascending: false });
       if (error) throw error;
@@ -136,7 +136,7 @@ function Compte() {
                     {s.exemple && <span className="font-normal text-muted-foreground"> (exemple)</span>}
                   </span>
                   <span className="text-muted-foreground">
-                    {s.nb_articles != null ? `${s.nb_articles} articles analysés` : ""}
+                    {s.nb_sujets != null ? `${s.nb_sujets} sujets` : ""}
                     <span aria-hidden="true"> →</span>
                   </span>
                 </button>
@@ -157,7 +157,7 @@ function Compte() {
               {formatDate(current.date_veille)}
               {current.nb_sources != null &&
                 ` | ${current.nb_sources - (current.nb_sources_echec ?? 0)} sources lues sur ${current.nb_sources}`}
-              {current.nb_articles != null && ` | ${current.nb_articles} articles analysés`}
+              {current.nb_articles != null && ` | ${current.nb_articles.toLocaleString("fr-FR")} entrées de flux parcourues`}
             </p>
             {presentes.length > 1 && (
               <div role="group" aria-label="Filtrer par rubrique" className="mt-4 flex flex-wrap gap-2">
@@ -241,6 +241,24 @@ function Preferences({ userId }: { userId: string }) {
 
   return (
     <>
+      <section aria-labelledby="rubriques-titre" className={card}>
+        <h2 id="rubriques-titre" className="text-lg font-semibold text-foreground">Rubriques suivies</h2>
+        <form onSubmit={saveRubriques} className="mt-3 space-y-3">
+          {RUBRIQUES.map((r, i) => (
+            <div key={r} className="flex items-center gap-2">
+              <Checkbox
+                id={`rub-${i}`}
+                checked={rubriques.includes(r)}
+                onCheckedChange={(c) => setRubriques((prev) => (c ? [...prev, r] : prev.filter((x) => x !== r)))}
+              />
+              <Label htmlFor={`rub-${i}`} className="font-normal">{r}</Label>
+            </div>
+          ))}
+          {msgR && <p role="status" className={`text-sm ${msgR.ok ? "text-primary" : "text-destructive"}`}>{msgR.text}</p>}
+          <Button type="submit" size="sm">Enregistrer</Button>
+        </form>
+      </section>
+
       <section aria-labelledby="reception-titre" className={card}>
         <h2 id="reception-titre" className="text-lg font-semibold text-foreground">Réception</h2>
         <form onSubmit={saveReception} className="mt-3 space-y-4">
@@ -268,24 +286,6 @@ function Preferences({ userId }: { userId: string }) {
             </div>
           )}
           {msg && <p role="status" className={`text-sm ${msg.ok ? "text-primary" : "text-destructive"}`}>{msg.text}</p>}
-          <Button type="submit" size="sm">Enregistrer</Button>
-        </form>
-      </section>
-
-      <section aria-labelledby="rubriques-titre" className={card}>
-        <h2 id="rubriques-titre" className="text-lg font-semibold text-foreground">Rubriques suivies</h2>
-        <form onSubmit={saveRubriques} className="mt-3 space-y-3">
-          {RUBRIQUES.map((r, i) => (
-            <div key={r} className="flex items-center gap-2">
-              <Checkbox
-                id={`rub-${i}`}
-                checked={rubriques.includes(r)}
-                onCheckedChange={(c) => setRubriques((prev) => (c ? [...prev, r] : prev.filter((x) => x !== r)))}
-              />
-              <Label htmlFor={`rub-${i}`} className="font-normal">{r}</Label>
-            </div>
-          ))}
-          {msgR && <p role="status" className={`text-sm ${msgR.ok ? "text-primary" : "text-destructive"}`}>{msgR.text}</p>}
           <Button type="submit" size="sm">Enregistrer</Button>
         </form>
       </section>
