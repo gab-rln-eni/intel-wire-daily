@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { json, verifierSecret } from "@/lib/publication.server";
+import { json, lireModeTest, verifierSecret } from "@/lib/publication.server";
 
 const STATUTS: Record<string, string> = { ENVOYE: "envoyee", EN_COURS: "en_cours", ECHEC: "echec" };
 
@@ -78,7 +78,8 @@ export const Route = createFileRoute("/api/public/publier-synthese")({
         if (error) return json({ error: "Écriture impossible" }, 500);
         const r = data as { conflict?: boolean; ok?: boolean; date_veille: string; nb_sujets?: number };
         if (r.conflict) return json({ ok: false, error: "Sujets existants et liste reçue vide", date_veille: date }, 409);
-        return json({ ok: true, date_veille: r.date_veille, nb_sujets: r.nb_sujets });
+        // Mode test (D-WEB-16) : Publication v4 ne diffuse pas sur Discord quand mode_test vaut true
+        return json({ ok: true, date_veille: r.date_veille, nb_sujets: r.nb_sujets, mode_test: await lireModeTest(supabaseAdmin) });
       },
     },
   },

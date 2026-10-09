@@ -20,7 +20,10 @@ interface Requete extends PromiseLike<{ data: unknown; error: unknown }> {
   insert(v: object): Requete;
   update(v: object): Requete;
   delete(): Requete;
+  select(c: string): Requete;
   eq(k: string, v: unknown): Requete;
+  ilike(k: string, v: string): Requete;
+  maybeSingle(): PromiseLike<{ data: Record<string, unknown> | null; error: unknown }>;
 }
 const table = (sb: SB, nom: string) => (sb.from as unknown as (n: string) => Requete).bind(sb)(nom);
 const rpc = (sb: SB, nom: string, args?: object) =>
@@ -196,4 +199,108 @@ export const basculerModeTest = createServerFn({ method: "POST" })
     if (error) throw new Error("Bascule impossible");
     await journal(q, context.userId, data.actif ? "Activer le mode test" : "Désactiver le mode test", "mode_test");
     return { ok: true, actif: data.actif };
+  });
+
+/* Sources (D-WEB-9, D-WEB-17 b) : la console écrit une action dans une file ; n8n l'applique au classeur SOURCES
+   avec les mêmes contrôles que le formulaire et inscrit l'HISTORIQUE. Le classeur reste la seule référence.
+   Droits : admin, toutes les actions appliquées directement ; veilleur, Désactiver directement (geste de protection),
+   Ajouter et Activer soumis à la validation de l'admin. */
+
+const ACTIONS = ["Ajouter", "Activer", "Désactiver"] as const;
+export const CATEGORIES = ["Officiel", "Média EN", "Média FR", "Gouvernance", "Autre"];
+type ActionSource = (typeof ACTIONS)[number];
+
+export type ProposeSource = { action: ActionSource; nom: string; url?: string; categorie?: string; priorite?: string; motif: string };
+
+function nettoyer(d: ProposeSource): Required<ProposeSource> {
+  const action = ACTIONS.includes(d?.action) ? d.action : ("" as ActionSource);
+  const prio = String(d?.priorite ?? "").trim();
+  return {
+    action,
+    nom: String(d?.nom ?? "").trim().slice(0, 200),
+    url: String(d?.url ?? "").trim().slice(0, 500),
+    categorie: CATEGORIES.includes(String(d?.categorie ?? "")) ? String(d.categorie) : "Autre",
+    priorite: ["1", "2", "3"].includes(prio) ? prio : "1",
+    motif: String(d?.motif ?? "").trim().slice(0, 300),
+  };
+}
+
+/** Contrôles anticipés sur le miroir (confort : n8n refait les contrôles de référence sur le classeur). */
+async function controler(sb: SB, a: Required<ProposeSource>) {
+  if (!a.action) return "action invalide";
+  if (!a.nom) return "nom obligatoire";
+  if (!a.motif) return "motif obligatoire";
+  const { data: deja } = await table(sb, "actions_sources").select("id").eq("nom", a.nom).eq("statut", "a_valider").maybeSingle();
+  if (deja) return "une action sur cette source attend déjà la validation";
+  if (a.action === "Ajouter") {
+    if (!/^https?:\/\/\S+$/i.test(a.url)) return "URL invalide (http ou https, sans espace)";
+    const { data: n } = await table(sb, "sources_miroir").select("nom").ilike("nom", a.nom).maybeSingle();
+    if (n) return `source déjà présente : ${a.nom}`;
+    const { data: u } = await table(sb, "sources_miroir").select("nom").ilike("url", a.url).maybeSingle();
+    if (u) return `URL déjà présente (source ${String(u["nom"])})`;
+    return "";
+  }
+  const { data: s } = await table(sb, "sources_miroir").select("nom, active").eq("nom", a.nom).maybeSingle();
+  if (!s) return `source inconnue : ${a.nom}`;
+  if (a.action === "Activer" && s["active"] === true) return "source déjà active";
+  if (a.action === "Désactiver" && s["active"] === false) return "source déjà inactive";
+  return "";
+}
+
+export const proposerActionSource = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(nettoyer)
+  .handler(async ({ context, data }) => {
+    const intitule = `Source : ${data.action || "action"}`;
+    const q = await exiger(context.userId, ["admin", "veilleur"], intitule);
+    const refus = await controler(q.sb, data);
+    if (refus) {
+      await journal(q, context.userId, intitule, data.nom, refus, "refus");
+      throw new Error(refus);
+    }
+    const aValider = q.role === "veilleur" && data.action !== "Désactiver";
+    const ligne = {
+      auteur: context.userId,
+      auteur_email: q.email,
+      role: q.role,
+      action: data.action,
+      nom: data.nom,
+      url: data.action === "Ajouter" ? data.url : null,
+      categorie: data.action === "Ajouter" ? data.categorie : null,
+      priorite: data.action === "Ajouter" ? data.priorite : null,
+      motif: data.motif,
+      statut: aValider ? "a_valider" : "en_attente",
+      valide_par: aValider ? null : q.email,
+    };
+    const { error } = await table(q.sb, "actions_sources").insert(ligne);
+    if (error) throw new Error("Enregistrement impossible");
+    await journal(q, context.userId, intitule, data.nom, aValider ? "soumise à validation" : "transmise à n8n");
+    return { ok: true, a_valider: aValider };
+  });
+
+/** Validation par l'admin d'une action proposée par un veilleur : transmise à n8n, ou annulée. */
+export const validerActionSource = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { id: string; accepter: boolean }) => ({ id: String(d?.id ?? ""), accepter: d?.accepter === true }))
+  .handler(async ({ context, data }) => {
+    const intitule = data.accepter ? "Source : valider" : "Source : rejeter";
+    const q = await exiger(context.userId, ["admin"], intitule);
+    const refuser = async (motif: string, cible = data.id): Promise<never> => {
+      await journal(q, context.userId, intitule, cible, motif, "refus");
+      throw new Error(motif);
+    };
+    if (!/^[0-9a-f-]{36}$/i.test(data.id)) await refuser("Identifiant invalide", "");
+    const { data: a } = await table(q.sb, "actions_sources").select("nom, action, statut").eq("id", data.id).maybeSingle();
+    if (!a || a["statut"] !== "a_valider") return refuser("Action introuvable ou déjà traitée", a ? `${String(a["action"])} ${String(a["nom"])}` : data.id);
+    const { error } = await table(q.sb, "actions_sources")
+      .update(
+        data.accepter
+          ? { statut: "en_attente", valide_par: q.email }
+          : { statut: "annulee", valide_par: q.email, traite_le: new Date().toISOString(), detail: "Rejetée par l'administrateur" },
+      )
+      .eq("id", data.id)
+      .eq("statut", "a_valider");
+    if (error) return refuser("Mise à jour impossible");
+    await journal(q, context.userId, intitule, `${String(a["action"])} ${String(a["nom"])}`);
+    return { ok: true };
   });

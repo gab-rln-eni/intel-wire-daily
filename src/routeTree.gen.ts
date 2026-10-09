@@ -12,9 +12,12 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as CompteRouteImport } from './routes/compte'
+import { Route as ApiPublicActionSourceStatutRouteImport } from './routes/api/public/action-source-statut'
+import { Route as ApiPublicActionSourceSuivanteRouteImport } from './routes/api/public/action-source-suivante'
 import { Route as ApiPublicDemandeStatutRouteImport } from './routes/api/public/demande-statut'
 import { Route as ApiPublicDemandesSuivanteRouteImport } from './routes/api/public/demandes-suivante'
 import { Route as ApiPublicListerAbonnesRouteImport } from './routes/api/public/lister-abonnes'
+import { Route as ApiPublicPublierSourcesRouteImport } from './routes/api/public/publier-sources'
 import { Route as ApiPublicPublierSyntheseRouteImport } from './routes/api/public/publier-synthese'
 
 const IndexRoute = IndexRouteImport.update({
@@ -32,6 +35,18 @@ const CompteRoute = CompteRouteImport.update({
   path: '/compte',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicActionSourceStatutRoute =
+  ApiPublicActionSourceStatutRouteImport.update({
+    id: '/api/public/action-source-statut',
+    path: '/api/public/action-source-statut',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicActionSourceSuivanteRoute =
+  ApiPublicActionSourceSuivanteRouteImport.update({
+    id: '/api/public/action-source-suivante',
+    path: '/api/public/action-source-suivante',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicDemandeStatutRoute = ApiPublicDemandeStatutRouteImport.update({
   id: '/api/public/demande-statut',
   path: '/api/public/demande-statut',
@@ -48,6 +63,11 @@ const ApiPublicListerAbonnesRoute = ApiPublicListerAbonnesRouteImport.update({
   path: '/api/public/lister-abonnes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicPublierSourcesRoute = ApiPublicPublierSourcesRouteImport.update({
+  id: '/api/public/publier-sources',
+  path: '/api/public/publier-sources',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicPublierSyntheseRoute =
   ApiPublicPublierSyntheseRouteImport.update({
     id: '/api/public/publier-synthese',
@@ -59,18 +79,24 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/compte': typeof CompteRoute
+  '/api/public/action-source-statut': typeof ApiPublicActionSourceStatutRoute
+  '/api/public/action-source-suivante': typeof ApiPublicActionSourceSuivanteRoute
   '/api/public/demande-statut': typeof ApiPublicDemandeStatutRoute
   '/api/public/demandes-suivante': typeof ApiPublicDemandesSuivanteRoute
   '/api/public/lister-abonnes': typeof ApiPublicListerAbonnesRoute
+  '/api/public/publier-sources': typeof ApiPublicPublierSourcesRoute
   '/api/public/publier-synthese': typeof ApiPublicPublierSyntheseRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/compte': typeof CompteRoute
+  '/api/public/action-source-statut': typeof ApiPublicActionSourceStatutRoute
+  '/api/public/action-source-suivante': typeof ApiPublicActionSourceSuivanteRoute
   '/api/public/demande-statut': typeof ApiPublicDemandeStatutRoute
   '/api/public/demandes-suivante': typeof ApiPublicDemandesSuivanteRoute
   '/api/public/lister-abonnes': typeof ApiPublicListerAbonnesRoute
+  '/api/public/publier-sources': typeof ApiPublicPublierSourcesRoute
   '/api/public/publier-synthese': typeof ApiPublicPublierSyntheseRoute
 }
 export interface FileRoutesById {
@@ -78,9 +104,12 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/compte': typeof CompteRoute
+  '/api/public/action-source-statut': typeof ApiPublicActionSourceStatutRoute
+  '/api/public/action-source-suivante': typeof ApiPublicActionSourceSuivanteRoute
   '/api/public/demande-statut': typeof ApiPublicDemandeStatutRoute
   '/api/public/demandes-suivante': typeof ApiPublicDemandesSuivanteRoute
   '/api/public/lister-abonnes': typeof ApiPublicListerAbonnesRoute
+  '/api/public/publier-sources': typeof ApiPublicPublierSourcesRoute
   '/api/public/publier-synthese': typeof ApiPublicPublierSyntheseRoute
 }
 export interface FileRouteTypes {
@@ -89,27 +118,36 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/compte'
+    | '/api/public/action-source-statut'
+    | '/api/public/action-source-suivante'
     | '/api/public/demande-statut'
     | '/api/public/demandes-suivante'
     | '/api/public/lister-abonnes'
+    | '/api/public/publier-sources'
     | '/api/public/publier-synthese'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/admin'
     | '/compte'
+    | '/api/public/action-source-statut'
+    | '/api/public/action-source-suivante'
     | '/api/public/demande-statut'
     | '/api/public/demandes-suivante'
     | '/api/public/lister-abonnes'
+    | '/api/public/publier-sources'
     | '/api/public/publier-synthese'
   id:
     | '__root__'
     | '/'
     | '/admin'
     | '/compte'
+    | '/api/public/action-source-statut'
+    | '/api/public/action-source-suivante'
     | '/api/public/demande-statut'
     | '/api/public/demandes-suivante'
     | '/api/public/lister-abonnes'
+    | '/api/public/publier-sources'
     | '/api/public/publier-synthese'
   fileRoutesById: FileRoutesById
 }
@@ -117,9 +155,12 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   CompteRoute: typeof CompteRoute
+  ApiPublicActionSourceStatutRoute: typeof ApiPublicActionSourceStatutRoute
+  ApiPublicActionSourceSuivanteRoute: typeof ApiPublicActionSourceSuivanteRoute
   ApiPublicDemandeStatutRoute: typeof ApiPublicDemandeStatutRoute
   ApiPublicDemandesSuivanteRoute: typeof ApiPublicDemandesSuivanteRoute
   ApiPublicListerAbonnesRoute: typeof ApiPublicListerAbonnesRoute
+  ApiPublicPublierSourcesRoute: typeof ApiPublicPublierSourcesRoute
   ApiPublicPublierSyntheseRoute: typeof ApiPublicPublierSyntheseRoute
 }
 
@@ -146,6 +187,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CompteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/action-source-statut': {
+      id: '/api/public/action-source-statut'
+      path: '/api/public/action-source-statut'
+      fullPath: '/api/public/action-source-statut'
+      preLoaderRoute: typeof ApiPublicActionSourceStatutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/action-source-suivante': {
+      id: '/api/public/action-source-suivante'
+      path: '/api/public/action-source-suivante'
+      fullPath: '/api/public/action-source-suivante'
+      preLoaderRoute: typeof ApiPublicActionSourceSuivanteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/demande-statut': {
       id: '/api/public/demande-statut'
       path: '/api/public/demande-statut'
@@ -167,6 +222,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicListerAbonnesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/publier-sources': {
+      id: '/api/public/publier-sources'
+      path: '/api/public/publier-sources'
+      fullPath: '/api/public/publier-sources'
+      preLoaderRoute: typeof ApiPublicPublierSourcesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/publier-synthese': {
       id: '/api/public/publier-synthese'
       path: '/api/public/publier-synthese'
@@ -181,9 +243,12 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   CompteRoute: CompteRoute,
+  ApiPublicActionSourceStatutRoute: ApiPublicActionSourceStatutRoute,
+  ApiPublicActionSourceSuivanteRoute: ApiPublicActionSourceSuivanteRoute,
   ApiPublicDemandeStatutRoute: ApiPublicDemandeStatutRoute,
   ApiPublicDemandesSuivanteRoute: ApiPublicDemandesSuivanteRoute,
   ApiPublicListerAbonnesRoute: ApiPublicListerAbonnesRoute,
+  ApiPublicPublierSourcesRoute: ApiPublicPublierSourcesRoute,
   ApiPublicPublierSyntheseRoute: ApiPublicPublierSyntheseRoute,
 }
 export const routeTree = rootRouteImport

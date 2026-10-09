@@ -21,7 +21,11 @@ import { Segments } from "@/components/Segments";
 import { Marque } from "@/components/Layout";
 import {
   basculerModeTest,
+  CATEGORIES,
   definirVeilleur,
+  proposerActionSource,
+  validerActionSource,
+  type ProposeSource,
   lancerVeille,
   listerUtilisateurs,
   reactiverUtilisateur,
@@ -31,8 +35,8 @@ import {
 } from "@/lib/admin.functions";
 
 // Console réduite au strict nécessaire (consigne G_R) : Synthèses fondu dans la Vue d'ensemble ; Journal d'audit ajouté (D-WEB-12)
-type Section = "apercu" | "abonnes" | "demandes" | "journal";
-const SECTIONS: Section[] = ["apercu", "abonnes", "demandes", "journal"];
+type Section = "apercu" | "sources" | "abonnes" | "demandes" | "journal";
+const SECTIONS: Section[] = ["apercu", "sources", "abonnes", "demandes", "journal"];
 const FORMULAIRE_SOURCES = "https://docs.google.com/forms/d/e/1FAIpQLSfXm_fq5V8gyo35l-rn-6AsE8wa4LGSR7WADUjRV0DR4TDZ1w/viewform";
 
 export const Route = createFileRoute("/admin")({
@@ -152,9 +156,12 @@ function Admin() {
   const enAttente = demandes.filter((d) => d.statut === "en_attente" || d.statut === "prise").length;
   const n8n = etatN8n(data?.dernierAppel ?? null);
   const suspendus = utilisateurs?.filter((u) => u.suspendu).length ?? 0;
+  const { data: src } = useQuery({ queryKey: ["admin-sources"], refetchInterval: 30000, queryFn: lireSources });
+  const aValider = estAdmin ? (src?.actions.filter((a) => a.statut === "a_valider").length ?? 0) : 0;
 
   const menu: { s: Section; texte: string; n?: number | undefined }[] = [
     { s: "apercu", texte: "Vue d'ensemble" },
+    { s: "sources", texte: "Sources", n: aValider || undefined },
     { s: "abonnes", texte: "Abonnés", n: utilisateurs?.length },
     { s: "demandes", texte: "Demandes", n: enAttente || undefined },
     { s: "journal", texte: "Journal" },
@@ -197,7 +204,7 @@ function Admin() {
         {modeTest && (
           <div role="status" className="border-b border-primary bg-accent-soft px-5 py-2 text-[13px] text-foreground">
             <b className="font-semibold">Mode test actif</b> ({data?.modeTestMaj}) : la liste des abonnés transmise à n8n ne contient que l'équipe ; aucun abonné n'est servi.
-            La diffusion dans le salon Discord n'en tient pas encore compte.
+            Avec Publication v4, la diffusion dans le salon Discord est aussi suspendue.
           </div>
         )}
         {bascule && <p role="alert" className="border-b border-border px-5 py-2 text-[13px] text-destructive">{bascule}</p>}
@@ -217,18 +224,13 @@ function Admin() {
                     }`}
                   >
                     {m.texte}
-                    {m.n != null && <span className={`font-mono text-xs ${m.s === "demandes" ? "text-primary" : "text-ink3"}`}>{m.n}</span>}
+                    {m.n != null && <span className={`font-mono text-xs ${m.s === "demandes" || m.s === "sources" ? "text-primary" : "text-ink3"}`}>{m.n}</span>}
                   </Link>
                 </li>
               ))}
             </ul>
             <div className="hidden md:block">
               <p className="label-section mt-6 px-5">Outils</p>
-              {estAdmin && (
-              <a href={FORMULAIRE_SOURCES} target="_blank" rel="noopener noreferrer" className="block px-5 py-2 text-[13px] text-muted-foreground hover:text-foreground">
-                Gérer les sources ↗<span className="sr-only"> (nouvel onglet)</span>
-              </a>
-              )}
               <a href="/" target="_blank" rel="noopener noreferrer" className="block px-5 py-2 text-[13px] text-muted-foreground hover:text-foreground">
                 Voir le site public ↗<span className="sr-only"> (nouvel onglet)</span>
               </a>
@@ -248,6 +250,7 @@ function Admin() {
                 n8n={n8n}
               />
             )}
+            {section === "sources" && <Sources donnees={src} estAdmin={estAdmin} />}
             {section === "abonnes" && <GestionAbonnes utilisateurs={utilisateurs} moi={userId} estAdmin={estAdmin} />}
             {section === "journal" && <JournalAudit estAdmin={estAdmin} />}
             {section === "demandes" && <Demandes demandes={demandes} n8n={n8n} />}
@@ -753,5 +756,343 @@ function Statut({ u }: { u: UtilisateurAdmin }) {
       <span aria-hidden="true" className={`h-2 w-2 rounded-full border-[1.5px] ${point}`} />
       {texte}
     </span>
+  );
+}
+
+/* ---------- Sources (D-WEB-9, D-WEB-17 b) ---------- */
+
+type SourceMiroir = {
+  nom: string;
+  url: string | null;
+  categorie: string | null;
+  priorite: number | null;
+  active: boolean;
+  statut_sante: string | null;
+  jours_echec: number | null;
+  nb_articles: number | null;
+  sante_le: string | null;
+};
+type ActionSrc = {
+  id: string;
+  cree_le: string;
+  auteur_email: string | null;
+  role: string | null;
+  action: string;
+  nom: string;
+  url: string | null;
+  motif: string;
+  statut: string;
+  detail: string | null;
+  traite_le: string | null;
+};
+type DonneesSources = { sources: SourceMiroir[]; actions: ActionSrc[]; majLe: string | null };
+
+async function lireSources(): Promise<DonneesSources> {
+  // Tables ajoutées hors des types générés : accès non typé, lié à son client
+  const lire = (supabase.from as unknown as (t: string) => {
+    select: (c: string) => {
+      order: (k: string, o: object) => { limit: (n: number) => Promise<{ data: unknown[] | null }> };
+      eq: (k: string, v: string) => { maybeSingle: () => Promise<{ data: { valeur: unknown } | null }> };
+    };
+  }).bind(supabase);
+  const [s, a, m] = await Promise.all([
+    lire("sources_miroir").select("nom, url, categorie, priorite, active, statut_sante, jours_echec, nb_articles, sante_le").order("nom", { ascending: true }).limit(500),
+    lire("actions_sources").select("id, cree_le, auteur_email, role, action, nom, url, motif, statut, detail, traite_le").order("cree_le", { ascending: false }).limit(20),
+    lire("parametres").select("valeur").eq("cle", "sources_maj").maybeSingle(),
+  ]);
+  return {
+    sources: (s.data ?? []) as SourceMiroir[],
+    actions: (a.data ?? []) as ActionSrc[],
+    majLe: typeof m.data?.valeur === "string" ? m.data.valeur : null,
+  };
+}
+
+const STATUTS_ACTION: Record<string, string> = {
+  a_valider: "À valider",
+  en_attente: "Transmise",
+  prise: "En cours",
+  appliquee: "Appliquée",
+  refusee: "Refusée",
+  annulee: "Rejetée",
+};
+const ouverte = (st: string) => st === "a_valider" || st === "en_attente" || st === "prise";
+
+function santeDe(s: SourceMiroir): { etat: Etat; texte: string } {
+  if (!s.active) return { etat: "neutre", texte: "Inactive" };
+  if (!s.statut_sante) return { etat: "neutre", texte: "Pas encore relevée" };
+  if (s.statut_sante.toUpperCase() === "OK") return { etat: "ok", texte: "OK" };
+  const j = s.jours_echec ?? 0;
+  return { etat: j >= 3 ? "alerte" : "attente", texte: `En échec${j ? ` (${j} j)` : ""}` };
+}
+
+type FiltreSrc = "toutes" | "actives" | "inactives" | "alerte";
+type Saisie = { action: ProposeSource["action"]; nom: string; url: string; categorie: string; priorite: string; motif: string };
+
+/** Sources : miroir du classeur (lecture), gestes simples (Désactiver, Activer, Ajouter) appliqués par n8n avec les contrôles du formulaire. */
+function Sources({ donnees, estAdmin }: { donnees: DonneesSources | undefined; estAdmin: boolean }) {
+  const qc = useQueryClient();
+  const proposer = useServerFn(proposerActionSource);
+  const valider = useServerFn(validerActionSource);
+  const [recherche, setRecherche] = useState("");
+  const [filtre, setFiltre] = useState<FiltreSrc>("toutes");
+  const [saisie, setSaisie] = useState<Saisie | null>(null);
+  const [occupe, setOccupe] = useState(false);
+  const [erreur, setErreur] = useState("");
+  const [msg, setMsg] = useState<{ ok: boolean; texte: string } | null>(null);
+
+  const sources = useMemo(() => donnees?.sources ?? [], [donnees]);
+  const actions = donnees?.actions ?? [];
+  const enCours = new Set(actions.filter((a) => ouverte(a.statut)).map((a) => a.nom));
+  const aValider = actions.filter((a) => a.statut === "a_valider");
+  const recentes = actions.filter((a) => a.statut !== "a_valider").slice(0, 8);
+  const compte = (f: FiltreSrc) =>
+    sources.filter((s) => f === "toutes" || (f === "actives" ? s.active : f === "inactives" ? !s.active : santeDe(s).etat === "alerte")).length;
+  const liste = useMemo(() => {
+    const q = recherche.trim().toLowerCase();
+    return sources.filter(
+      (s) =>
+        (!q || s.nom.toLowerCase().includes(q) || (s.url ?? "").toLowerCase().includes(q)) &&
+        (filtre === "toutes" || (filtre === "actives" ? s.active : filtre === "inactives" ? !s.active : santeDe(s).etat === "alerte")),
+    );
+  }, [sources, recherche, filtre]);
+
+  const ouvrir = (action: Saisie["action"], nom = "") => {
+    setErreur("");
+    setSaisie({ action, nom, url: "", categorie: "Autre", priorite: "1", motif: "" });
+  };
+  const envoyer = async () => {
+    if (!saisie) return;
+    setOccupe(true);
+    setErreur("");
+    try {
+      const r = await proposer({ data: saisie });
+      setSaisie(null);
+      setMsg({
+        ok: true,
+        texte: r.a_valider
+          ? `${saisie.action} « ${saisie.nom} » : soumise à la validation de l'administrateur.`
+          : `${saisie.action} « ${saisie.nom} » : transmise, n8n l'applique sous 2 minutes environ (PC allumé).`,
+      });
+      await qc.invalidateQueries({ queryKey: ["admin-sources"] });
+    } catch (e) {
+      setErreur(e instanceof Error ? e.message : "Enregistrement impossible.");
+    } finally {
+      setOccupe(false);
+    }
+  };
+  const decider = async (a: ActionSrc, accepter: boolean) => {
+    setMsg(null);
+    try {
+      await valider({ data: { id: a.id, accepter } });
+      setMsg({ ok: true, texte: `${a.action} « ${a.nom} » : ${accepter ? "validée et transmise à n8n" : "rejetée"}.` });
+      await qc.invalidateQueries({ queryKey: ["admin-sources"] });
+    } catch (e) {
+      setMsg({ ok: false, texte: e instanceof Error ? e.message : "Action impossible." });
+    }
+  };
+  const champ = (k: keyof Saisie) => (e: { target: { value: string } }) => saisie && setSaisie({ ...saisie, [k]: e.target.value });
+
+  return (
+    <section aria-labelledby="sources" className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="label-section">Sources</p>
+          <h1 id="sources" className="mt-0.5 text-xl font-semibold tracking-tight text-foreground">Sources de la veille</h1>
+          <p className="mt-1 text-xs text-ink3">
+            {donnees?.majLe ? `Classeur relu le ${formatDateTime(donnees.majLe)}` : "Classeur pas encore relu par n8n"} | {compte("actives")} actives sur {sources.length}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <Input type="search" aria-label="Rechercher une source" placeholder="Rechercher une source" value={recherche} onChange={(e) => setRecherche(e.target.value)} className="h-9 w-52" />
+          <Segments<FiltreSrc>
+            label="Filtrer les sources"
+            valeur={filtre}
+            onChange={setFiltre}
+            options={[
+              { v: "toutes", texte: "Toutes", n: compte("toutes") },
+              { v: "actives", texte: "Actives", n: compte("actives") },
+              { v: "inactives", texte: "Inactives", n: compte("inactives") },
+              { v: "alerte", texte: "En alerte", n: compte("alerte") },
+            ]}
+          />
+          <Button onClick={() => ouvrir("Ajouter")}>Ajouter une source</Button>
+        </div>
+      </div>
+      {msg && <p role="status" className={`text-sm ${msg.ok ? "text-foreground" : "text-destructive"}`}>{msg.texte}</p>}
+
+      {estAdmin && aValider.length > 0 && (
+        <div className="border border-primary">
+          <p className="border-b border-primary bg-accent-soft px-4 py-2 text-[13px] font-semibold text-foreground">
+            {aValider.length} proposition{aValider.length > 1 ? "s" : ""} du veilleur à valider
+          </p>
+          <ul className="divide-y divide-border">
+            {aValider.map((a) => (
+              <li key={a.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 text-[13px]">
+                <span className="min-w-0">
+                  <b className="font-semibold text-foreground">{a.action} « {a.nom} »</b>
+                  {a.url && <span className="ml-2 break-all font-mono text-xs text-ink3">{a.url}</span>}
+                  <span className="block text-xs text-muted-foreground">Motif : {a.motif} | {a.auteur_email} | {formatDateTime(a.cree_le)}</span>
+                </span>
+                <span className="flex gap-2">
+                  <Button size="sm" className="h-8 px-2.5 text-xs" onClick={() => decider(a, true)}>Valider</Button>
+                  <Button size="sm" variant="outline" className="h-8 px-2.5 text-xs" onClick={() => decider(a, false)}>Rejeter</Button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="overflow-x-auto border border-border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Source</TableHead>
+              <TableHead>Catégorie</TableHead>
+              <TableHead className="text-center">Priorité</TableHead>
+              <TableHead>Santé</TableHead>
+              <TableHead className="text-right">Articles</TableHead>
+              <TableHead className="text-right">Action</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {!donnees && <TableRow><TableCell colSpan={6} className="text-muted-foreground">Chargement...</TableCell></TableRow>}
+            {donnees && liste.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="text-muted-foreground">
+                  {sources.length ? "Aucune source pour ce filtre." : "Le miroir des sources est vide : le workflow Miroir sources de n8n ne l'a pas encore publié."}
+                </TableCell>
+              </TableRow>
+            )}
+            {liste.map((s) => {
+              const sante = santeDe(s);
+              return (
+                <TableRow key={s.nom} className={s.active ? undefined : "opacity-70"}>
+                  <TableCell className="max-w-[22rem]">
+                    <p className="text-[13px] font-medium text-foreground">{s.nom}</p>
+                    {s.url && <p className="truncate font-mono text-xs text-ink3" title={s.url}>{s.url}</p>}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-[13px]">{s.categorie || "-"}</TableCell>
+                  <TableCell className="text-center font-mono text-xs">{s.priorite ?? "-"}</TableCell>
+                  <TableCell>
+                    <span className={`inline-flex items-center gap-2 whitespace-nowrap text-[13px] ${sante.etat === "alerte" ? "text-primary" : ""}`}>
+                      <Point etat={sante.etat} />
+                      {sante.texte}
+                    </span>
+                    {s.sante_le && s.active && <span className="block text-xs text-ink3">relevé du {formatDate(s.sante_le)}</span>}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-xs">{s.nb_articles ?? "-"}</TableCell>
+                  <TableCell className="text-right">
+                    {enCours.has(s.nom) ? (
+                      <span className="text-xs text-ink3">Action en cours</span>
+                    ) : (
+                      <Button size="sm" variant="outline" className="h-8 px-2.5 text-xs" onClick={() => ouvrir(s.active ? "Désactiver" : "Activer", s.nom)}>
+                        {s.active ? "Désactiver" : "Activer"}
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+
+      {recentes.length > 0 && (
+        <div>
+          <h2 className="label-section mb-2">Dernières actions sur les sources</h2>
+          <ul className="divide-y divide-border border border-border text-[13px]">
+            {recentes.map((a) => (
+              <li key={a.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2">
+                <span className="inline-flex min-w-0 items-center gap-2">
+                  <Point etat={a.statut === "appliquee" ? "ok" : a.statut === "refusee" ? "alerte" : ouverte(a.statut) ? "attente" : "neutre"} />
+                  <span className="text-foreground">{a.action} « {a.nom} »</span>
+                </span>
+                <span className={`text-xs ${a.statut === "refusee" ? "text-primary" : "text-muted-foreground"}`}>
+                  {STATUTS_ACTION[a.statut] ?? a.statut}
+                  {a.detail ? ` : ${a.detail}` : ""} | {formatDateTime(a.traite_le ?? a.cree_le)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <p className="text-xs text-muted-foreground">
+        Le classeur SOURCES reste la référence : n8n y applique chaque action avec les contrôles du formulaire (URL valide, pas de doublon, source connue),
+        l'inscrit dans l'HISTORIQUE, puis la liste ci-dessus est relue.{" "}
+        {estAdmin
+          ? "Les ajouts et réactivations proposés par le veilleur attendent votre validation. "
+          : "Rôle veilleur : désactiver une source est immédiat ; ajouter ou réactiver attend la validation de l'administrateur. "}
+        {estAdmin && (
+          <a href={FORMULAIRE_SOURCES} target="_blank" rel="noopener noreferrer" className="link-accent">
+            Formulaire des sources (secours)<span className="sr-only"> (nouvel onglet)</span>
+          </a>
+        )}
+      </p>
+
+      <AlertDialog open={saisie !== null} onOpenChange={(o) => !o && !occupe && setSaisie(null)}>
+        <AlertDialogContent>
+          {saisie && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                envoyer();
+              }}
+              className="space-y-4"
+            >
+              <AlertDialogHeader>
+                <AlertDialogTitle>{saisie.action === "Ajouter" ? "Ajouter une source" : `${saisie.action} « ${saisie.nom} »`}</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {saisie.action === "Ajouter"
+                    ? "La source est ajoutée au classeur, active, et lue dès la prochaine veille."
+                    : saisie.action === "Désactiver"
+                      ? "La source n'est plus lue à partir de la prochaine veille. Réversible."
+                      : "La source est de nouveau lue à partir de la prochaine veille."}
+                  {!estAdmin && saisie.action !== "Désactiver" && " Votre proposition attend la validation de l'administrateur."}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              {saisie.action === "Ajouter" && (
+                <div className="grid gap-3">
+                  <label className="grid gap-1 text-[13px]">
+                    Nom de la source
+                    <Input required maxLength={200} value={saisie.nom} onChange={champ("nom")} placeholder="Ex. : Hugging Face Blog" />
+                  </label>
+                  <label className="grid gap-1 text-[13px]">
+                    Adresse du flux RSS
+                    <Input required type="url" maxLength={500} pattern="https?://\S+" value={saisie.url} onChange={champ("url")} placeholder="https://..." className="font-mono text-xs" />
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="grid gap-1 text-[13px]">
+                      Catégorie
+                      <select value={saisie.categorie} onChange={champ("categorie")} className="h-9 border border-input bg-background px-2 text-[13px]">
+                        {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+                      </select>
+                    </label>
+                    <label className="grid gap-1 text-[13px]">
+                      Priorité
+                      <select value={saisie.priorite} onChange={champ("priorite")} className="h-9 border border-input bg-background px-2 text-[13px]">
+                        <option value="1">1 (haute)</option>
+                        <option value="2">2</option>
+                        <option value="3">3 (basse)</option>
+                      </select>
+                    </label>
+                  </div>
+                </div>
+              )}
+              <label className="grid gap-1 text-[13px]">
+                Motif
+                <Input required maxLength={300} value={saisie.motif} onChange={champ("motif")} placeholder={saisie.action === "Désactiver" ? "Ex. : flux mort depuis 8 jours" : "Ex. : source de référence"} />
+              </label>
+              {erreur && <p role="alert" className="text-sm text-destructive">{erreur}</p>}
+              <AlertDialogFooter>
+                <AlertDialogCancel type="button" disabled={occupe}>Annuler</AlertDialogCancel>
+                <Button type="submit" disabled={occupe}>{occupe ? "Envoi..." : !estAdmin && saisie.action !== "Désactiver" ? "Proposer" : saisie.action}</Button>
+              </AlertDialogFooter>
+            </form>
+          )}
+        </AlertDialogContent>
+      </AlertDialog>
+    </section>
   );
 }
