@@ -20,6 +20,8 @@ import {
 import { Segments } from "@/components/Segments";
 import { Marque } from "@/components/Layout";
 import {
+  basculerModeTest,
+  definirVeilleur,
   lancerVeille,
   listerUtilisateurs,
   reactiverUtilisateur,
@@ -28,8 +30,9 @@ import {
   type UtilisateurAdmin,
 } from "@/lib/admin.functions";
 
-type Section = "apercu" | "syntheses" | "abonnes" | "demandes";
-const SECTIONS: Section[] = ["apercu", "syntheses", "abonnes", "demandes"];
+// Console réduite au strict nécessaire (consigne G_R) : Synthèses fondu dans la Vue d'ensemble ; Journal d'audit ajouté (D-WEB-12)
+type Section = "apercu" | "abonnes" | "demandes" | "journal";
+const SECTIONS: Section[] = ["apercu", "abonnes", "demandes", "journal"];
 const FORMULAIRE_SOURCES = "https://docs.google.com/forms/d/e/1FAIpQLSfXm_fq5V8gyo35l-rn-6AsE8wa4LGSR7WADUjRV0DR4TDZ1w/viewform";
 
 export const Route = createFileRoute("/admin")({
@@ -41,9 +44,13 @@ export const Route = createFileRoute("/admin")({
   beforeLoad: async () => {
     const { data } = await supabase.auth.getUser();
     if (!data.user) throw redirect({ to: "/" });
-    const { data: ok } = await supabase.rpc("has_role", { _user_id: data.user.id, _role: "admin" });
-    if (!ok) throw redirect({ to: "/" });
-    return { userId: data.user.id };
+    // Console ouverte à l'admin et au veilleur ; chaque action est revérifiée côté serveur
+    const [{ data: a }, { data: v }] = await Promise.all([
+      supabase.rpc("has_role", { _user_id: data.user.id, _role: "admin" }),
+      supabase.rpc("has_role", { _user_id: data.user.id, _role: "veilleur" as "admin" }),
+    ]);
+    if (!a && !v) throw redirect({ to: "/" });
+    return { userId: data.user.id, role: (a ? "admin" : "veilleur") as "admin" | "veilleur" };
   },
   head: () => ({
     meta: [
@@ -87,14 +94,17 @@ const heure = (d: string | null | undefined) =>
 const court = (d: string) => d.split("-").reverse().slice(0, 2).join("/");
 
 function Admin() {
-  const { userId } = Route.useRouteContext();
+  const { userId, role } = Route.useRouteContext();
   const { section = "apercu" } = Route.useSearch();
+  const estAdmin = role === "admin";
+  const qc = useQueryClient();
+  const basculer = useServerFn(basculerModeTest);
 
   const { data } = useQuery({
     queryKey: ["admin"],
     refetchInterval: 30000,
     queryFn: async () => {
-      const [syn, dem, ch] = await Promise.all([
+      const [syn, dem, ch, mt] = await Promise.all([
         supabase.from("syntheses").select("*").order("date_veille", { ascending: false }),
         supabase.from("demandes").select("*").order("created_at", { ascending: false }).limit(30),
         // Table ajoutée hors des types générés (signe de vie de n8n)
@@ -103,16 +113,36 @@ function Admin() {
         )
           .select("dernier_appel")
           .maybeSingle(),
+        (supabase.from as unknown as (t: string) => { select: (c: string) => { eq: (k: string, v: string) => { maybeSingle: () => Promise<{ data: { valeur: unknown; maj_le: string; maj_par: string | null } | null }> } } }).bind(supabase)(
+          "parametres",
+        )
+          .select("valeur, maj_le, maj_par")
+          .eq("cle", "mode_test")
+          .maybeSingle(),
       ]);
       return {
         syntheses: syn.data ?? [],
         demandes: (dem.data ?? []) as unknown as Demande[],
         dernierAppel: ch.data?.dernier_appel ?? null,
+        modeTest: mt.data?.valeur === true,
+        modeTestMaj: mt.data ? `${formatDateTime(mt.data.maj_le)}${mt.data.maj_par ? ` par ${mt.data.maj_par}` : ""}` : "",
       };
     },
   });
   const lister = useServerFn(listerUtilisateurs);
-  const { data: utilisateurs } = useQuery({ queryKey: ["admin-utilisateurs"], queryFn: () => lister() });
+  const { data: liste } = useQuery({ queryKey: ["admin-utilisateurs"], queryFn: () => lister() });
+  const utilisateurs = liste?.utilisateurs;
+  const modeTest = data?.modeTest ?? false;
+  const [bascule, setBascule] = useState<string | null>(null);
+  const basculerMode = async () => {
+    setBascule(null);
+    try {
+      await basculer({ data: { actif: !modeTest } });
+      await qc.invalidateQueries({ queryKey: ["admin"] });
+    } catch (e) {
+      setBascule(e instanceof Error ? e.message : "Bascule impossible");
+    }
+  };
 
   const syntheses = data?.syntheses ?? [];
   const demandes = data?.demandes ?? [];
@@ -125,9 +155,9 @@ function Admin() {
 
   const menu: { s: Section; texte: string; n?: number | undefined }[] = [
     { s: "apercu", texte: "Vue d'ensemble" },
-    { s: "syntheses", texte: "Synthèses", n: publiees.length },
     { s: "abonnes", texte: "Abonnés", n: utilisateurs?.length },
     { s: "demandes", texte: "Demandes", n: enAttente || undefined },
+    { s: "journal", texte: "Journal" },
   ];
 
   return (
@@ -140,12 +170,37 @@ function Admin() {
             <Marque className="h-3.5 w-3.5 text-foreground" />
             <b className="font-semibold text-foreground">Administration</b>
             <span className="font-mono text-ink3">/admin{section !== "apercu" ? `/${section}` : ""}</span>
+            {!estAdmin && <span className="border border-border px-1.5 py-0.5 font-mono text-[0.65rem] uppercase tracking-wide text-ink3">veilleur</span>}
           </span>
-          <span className="flex items-center gap-2">
-            <Point etat={duJour ? "ok" : "alerte"} />
-            {duJour ? `Chaîne à jour : synthèse du jour publiée à ${heure(derniere?.envoye_le)}` : "Pas de synthèse publiée aujourd'hui"}
+          <span className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <span className="flex items-center gap-2">
+              <Point etat={duJour ? "ok" : "alerte"} />
+              {duJour ? `Chaîne à jour : synthèse du jour publiée à ${heure(derniere?.envoye_le)}` : "Pas de synthèse publiée aujourd'hui"}
+            </span>
+            {/* Mode test (D-WEB-16) : bascule réservée au propriétaire, état visible par toute l'équipe */}
+            {estAdmin ? (
+              <button
+                type="button"
+                role="switch"
+                aria-checked={modeTest}
+                onClick={basculerMode}
+                className={`flex items-center gap-2 border px-2 py-1 font-medium transition-colors ${modeTest ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground hover:border-ink3"}`}
+              >
+                <span aria-hidden="true" className={`inline-block h-2 w-2 rounded-full ${modeTest ? "bg-primary-foreground" : "border border-ink3"}`} />
+                Mode test : {modeTest ? "activé" : "désactivé"}
+              </button>
+            ) : (
+              <span className={modeTest ? "font-semibold text-primary" : ""}>Mode test : {modeTest ? "activé" : "désactivé"}</span>
+            )}
           </span>
         </div>
+        {modeTest && (
+          <div role="status" className="border-b border-primary bg-accent-soft px-5 py-2 text-[13px] text-foreground">
+            <b className="font-semibold">Mode test actif</b> ({data?.modeTestMaj}) : la liste des abonnés transmise à n8n ne contient que l'équipe ; aucun abonné n'est servi.
+            La diffusion dans le salon Discord n'en tient pas encore compte.
+          </div>
+        )}
+        {bascule && <p role="alert" className="border-b border-border px-5 py-2 text-[13px] text-destructive">{bascule}</p>}
 
         <div className="flex flex-col md:flex-row">
           {/* Menu latéral */}
@@ -169,9 +224,11 @@ function Admin() {
             </ul>
             <div className="hidden md:block">
               <p className="label-section mt-6 px-5">Outils</p>
+              {estAdmin && (
               <a href={FORMULAIRE_SOURCES} target="_blank" rel="noopener noreferrer" className="block px-5 py-2 text-[13px] text-muted-foreground hover:text-foreground">
                 Gérer les sources ↗<span className="sr-only"> (nouvel onglet)</span>
               </a>
+              )}
               <a href="/" target="_blank" rel="noopener noreferrer" className="block px-5 py-2 text-[13px] text-muted-foreground hover:text-foreground">
                 Voir le site public ↗<span className="sr-only"> (nouvel onglet)</span>
               </a>
@@ -191,8 +248,8 @@ function Admin() {
                 n8n={n8n}
               />
             )}
-            {section === "syntheses" && <Journal syntheses={syntheses} />}
-            {section === "abonnes" && <GestionAbonnes utilisateurs={utilisateurs} moi={userId} />}
+            {section === "abonnes" && <GestionAbonnes utilisateurs={utilisateurs} moi={userId} estAdmin={estAdmin} />}
+            {section === "journal" && <JournalAudit estAdmin={estAdmin} />}
             {section === "demandes" && <Demandes demandes={demandes} n8n={n8n} />}
           </div>
         </div>
@@ -313,50 +370,6 @@ function Apercu({ syntheses, derniere, duJour, utilisateurs, enAttente, suspendu
   );
 }
 
-function Journal({ syntheses }: { syntheses: Synthese[] }) {
-  return (
-    <>
-      <Titre label="Synthèses" titre="Journal des publications" />
-      <div className="overflow-x-auto border border-border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Statut</TableHead>
-              <TableHead>Publiée à</TableHead>
-              <TableHead className="text-right">Flux lus</TableHead>
-              <TableHead className="text-right">Entrées</TableHead>
-              <TableHead className="text-right">Sujets</TableHead>
-              <TableHead>Résumés</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {syntheses.map((s) => (
-              <TableRow key={s.id}>
-                <TableCell className="whitespace-nowrap">
-                  {formatDate(s.date_veille)}
-                  {s.exemple && <span className="ml-2 font-mono text-[0.65rem] uppercase text-ink3">exemple</span>}
-                </TableCell>
-                <TableCell>
-                  <span className="inline-flex items-center gap-2">
-                    <Point etat={s.statut === "envoyee" ? "ok" : s.statut === "echec" ? "alerte" : "attente"} />
-                    {STATUTS[s.statut] ?? s.statut}
-                  </span>
-                </TableCell>
-                <TableCell className="font-mono text-xs">{s.envoye_le ? heure(s.envoye_le) : "-"}</TableCell>
-                <TableCell className="text-right font-mono text-xs">{s.nb_sources != null ? `${s.nb_sources - (s.nb_sources_echec ?? 0)} / ${s.nb_sources}` : "-"}</TableCell>
-                <TableCell className="text-right font-mono text-xs">{s.nb_articles?.toLocaleString("fr-FR") ?? "-"}</TableCell>
-                <TableCell className="text-right font-mono text-xs">{s.nb_sujets ?? "-"}</TableCell>
-                <TableCell>{s.degrade ? <span className="text-primary">Partiels</span> : "Complets"}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-    </>
-  );
-}
-
 type Demande = { id: string; created_at: string; statut: string; pris_le: string | null; termine_le: string | null; detail: string | null };
 type EtatN8n = { etat: Etat; texte: string };
 
@@ -444,6 +457,75 @@ function Demandes({ demandes, n8n }: { demandes: Demande[]; n8n: EtatN8n }) {
   );
 }
 
+type LigneJournal = { id: string; cree_le: string; auteur_email: string | null; role: string | null; action: string; cible: string | null; detail: string | null; resultat: string };
+
+/** Journal d'audit (D-WEB-12) : tout pour l'admin, ses propres actions pour le veilleur (filtré par la base). */
+function JournalAudit({ estAdmin }: { estAdmin: boolean }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin-journal"],
+    queryFn: async () => {
+      // Table ajoutée hors des types générés : accès non typé, lié à son client
+      const lire = (supabase.from as unknown as (t: string) => {
+        select: (c: string) => { order: (k: string, o: object) => { limit: (n: number) => Promise<{ data: LigneJournal[] | null }> } };
+      }).bind(supabase);
+      const { data } = await lire("admin_journal")
+        .select("id, cree_le, auteur_email, role, action, cible, detail, resultat")
+        .order("cree_le", { ascending: false })
+        .limit(200);
+      return data ?? [];
+    },
+  });
+  const lignes = data ?? [];
+  const col = estAdmin ? 5 : 4;
+  return (
+    <>
+      <Titre label="Journal" titre={estAdmin ? "Actions de l'équipe" : "Mes actions"}>
+        <p className="text-xs text-ink3">200 dernières actions | conservées 12 mois</p>
+      </Titre>
+      <div className="overflow-x-auto border border-border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Date</TableHead>
+              {estAdmin && <TableHead>Auteur</TableHead>}
+              <TableHead>Action</TableHead>
+              <TableHead>Cible</TableHead>
+              <TableHead>Résultat</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading && (
+              <TableRow><TableCell colSpan={col} className="text-muted-foreground">Chargement...</TableCell></TableRow>
+            )}
+            {!isLoading && lignes.length === 0 && (
+              <TableRow><TableCell colSpan={col} className="text-muted-foreground">Aucune action enregistrée.</TableCell></TableRow>
+            )}
+            {lignes.map((l) => (
+              <TableRow key={l.id}>
+                <TableCell className="whitespace-nowrap font-mono text-xs">{formatDateTime(l.cree_le)}</TableCell>
+                {estAdmin && (
+                  <TableCell className="font-mono text-xs">
+                    {l.auteur_email}
+                    {l.role === "veilleur" && <span className="ml-1 text-ink3">(veilleur)</span>}
+                  </TableCell>
+                )}
+                <TableCell className="text-[13px]">{l.action}</TableCell>
+                <TableCell className="font-mono text-xs text-muted-foreground">{l.cible}</TableCell>
+                <TableCell className="text-[13px]">
+                  <span className="inline-flex items-center gap-2">
+                    <Point etat={l.resultat === "ok" ? "ok" : "alerte"} />
+                    {l.resultat === "ok" ? "Fait" : `Refusé${l.detail ? ` : ${l.detail}` : ""}`}
+                  </span>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </>
+  );
+}
+
 function Stat({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
     <div className="bg-card px-4 py-3.5">
@@ -458,8 +540,9 @@ type Filtre = "tous" | "actifs" | "suspendus";
 type Action = { type: "suspendre" | "supprimer"; u: UtilisateurAdmin } | null;
 
 /** Gestion des abonnés : recherche, filtre, suspension réversible et suppression définitive. */
-function GestionAbonnes({ utilisateurs, moi }: { utilisateurs: UtilisateurAdmin[] | undefined; moi: string }) {
+function GestionAbonnes({ utilisateurs, moi, estAdmin }: { utilisateurs: UtilisateurAdmin[] | undefined; moi: string; estAdmin: boolean }) {
   const qc = useQueryClient();
+  const veilleur = useServerFn(definirVeilleur);
   const suspendre = useServerFn(suspendreUtilisateur);
   const reactiver = useServerFn(reactiverUtilisateur);
   const supprimer = useServerFn(supprimerUtilisateur);
@@ -536,22 +619,26 @@ function GestionAbonnes({ utilisateurs, moi }: { utilisateurs: UtilisateurAdmin[
               <TableHead>Inscription</TableHead>
               <TableHead>Dernière connexion</TableHead>
               <TableHead>Statut</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              {estAdmin && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {!utilisateurs && (
-              <TableRow><TableCell colSpan={5} className="text-muted-foreground">Chargement...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={estAdmin ? 5 : 4} className="text-muted-foreground">Chargement...</TableCell></TableRow>
             )}
             {utilisateurs && liste.length === 0 && (
-              <TableRow><TableCell colSpan={5} className="text-muted-foreground">Aucun utilisateur.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={estAdmin ? 5 : 4} className="text-muted-foreground">Aucun utilisateur.</TableCell></TableRow>
             )}
             {liste.map((u) => (
               <TableRow key={u.id} className={u.suspendu ? "opacity-70" : undefined}>
                 <TableCell>
                   <p className="font-mono text-xs text-foreground">
                     {u.email}
-                    {u.admin && <span className="ml-2 border border-border px-1 py-0.5 text-[0.65rem] uppercase tracking-wide text-primary">admin</span>}
+                    {u.role !== "abonne" && (
+                      <span className={`ml-2 border border-border px-1 py-0.5 text-[0.65rem] uppercase tracking-wide ${u.role === "admin" ? "text-primary" : "text-foreground"}`}>
+                        {u.role}
+                      </span>
+                    )}
                     {u.id === moi && <span className="ml-1 text-ink3">(vous)</span>}
                   </p>
                   <p className="mt-0.5 text-xs text-ink3">
@@ -563,6 +650,7 @@ function GestionAbonnes({ utilisateurs, moi }: { utilisateurs: UtilisateurAdmin[
                 <TableCell>
                   <Statut u={u} />
                 </TableCell>
+                {estAdmin && (
                 <TableCell className="text-right">
                   {u.admin || u.id === moi ? (
                     <span className="text-xs text-ink3">Protégé</span>
@@ -586,16 +674,35 @@ function GestionAbonnes({ utilisateurs, moi }: { utilisateurs: UtilisateurAdmin[
                       <Button size="sm" variant="destructive" className="h-8 px-2.5 text-xs" disabled={occupe === u.id} onClick={() => setAction({ type: "supprimer", u })}>
                         Supprimer
                       </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 px-2 text-xs"
+                        disabled={occupe === u.id || u.suspendu}
+                        title={u.role === "veilleur" ? "Retirer le rôle de veilleur" : "Donner le rôle restreint de veilleur"}
+                        onClick={() =>
+                          executer(
+                            () => veilleur({ data: { id: u.id, veilleur: u.role !== "veilleur" } }),
+                            u,
+                            u.role === "veilleur" ? `${u.email} n'est plus veilleur.` : `${u.email} est maintenant veilleur.`,
+                          )
+                        }
+                      >
+                        {u.role === "veilleur" ? "Retirer veilleur" : "Nommer veilleur"}
+                      </Button>
                     </div>
                   )}
                 </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
       <p className="text-xs text-muted-foreground">
-        Suspendre bloque toute nouvelle connexion et retire l'abonné de la diffusion ; c'est réversible. Supprimer efface le compte et ses préférences, définitivement.
+        {estAdmin
+          ? "Suspendre bloque toute nouvelle connexion et retire l'abonné de la diffusion ; c'est réversible. Supprimer efface le compte et ses préférences, définitivement. Le veilleur voit la console avec les emails masqués et peut lancer une veille, sans agir sur les comptes. Chaque action est inscrite au journal."
+          : "Rôle veilleur : emails masqués, aucune action sur les comptes."}
       </p>
 
       <AlertDialog open={action !== null} onOpenChange={(o) => !o && setAction(null)}>

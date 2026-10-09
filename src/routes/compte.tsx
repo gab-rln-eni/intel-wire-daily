@@ -352,10 +352,45 @@ function MesDonnees() {
   const del = useServerFn(supprimerCompte);
   const navigate = useNavigate();
   const [err, setErr] = useState<string | null>(null);
+  // Droit d'accès et de portabilité (RGPD, D-WEB-14) : toutes les données du compte, en JSON, sans passer par l'équipe
+  const exporter = async () => {
+    setErr(null);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error();
+      const [{ data: profil }, { data: roles }] = await Promise.all([
+        supabase.from("profiles").select("*").eq("id", u.user.id).maybeSingle(),
+        supabase.from("user_roles").select("role").eq("user_id", u.user.id),
+      ]);
+      const contenu = {
+        export_le: new Date().toISOString(),
+        compte: {
+          id: u.user.id,
+          email: u.user.email,
+          connexion: u.user.app_metadata?.["provider"] ?? "email",
+          cree_le: u.user.created_at,
+          derniere_connexion: u.user.last_sign_in_at ?? null,
+          email_confirme_le: u.user.email_confirmed_at ?? null,
+        },
+        preferences: profil,
+        roles: (roles ?? []).map((r) => r.role),
+      };
+      const url = URL.createObjectURL(new Blob([JSON.stringify(contenu, null, 2)], { type: "application/json" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `le-fil-ia_mes-donnees_${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setErr("Export impossible. Réessayez.");
+    }
+  };
   return (
     <section aria-labelledby="donnees-titre" className={card}>
       <h2 id="donnees-titre" className={titreBloc}>Compte</h2>
-      <p className="mt-2 text-sm text-muted-foreground">La suppression efface définitivement votre compte et vos préférences.</p>
+      <p className="mt-2 text-sm text-muted-foreground">Téléchargez à tout moment une copie de vos données (fichier JSON).</p>
+      <Button variant="outline" size="sm" className="mt-3" onClick={exporter}>Télécharger mes données</Button>
+      <p className="mt-5 text-sm text-muted-foreground">La suppression efface définitivement votre compte et vos préférences.</p>
       <AlertDialog>
         <AlertDialogTrigger asChild>
           <Button variant="destructive" size="sm" className="mt-3">Supprimer mon compte</Button>

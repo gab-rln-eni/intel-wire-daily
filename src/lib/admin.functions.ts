@@ -1,30 +1,70 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-// Gestion des utilisateurs par l'administrateur.
-// Chaque fonction revérifie le rôle admin côté serveur : masquer un bouton ne suffit pas.
+// Console d'administration : chaque fonction revérifie côté serveur le rôle de l'appelant (liste exacte des rôles autorisés,
+// jamais « tout sauf user ») et inscrit son action au journal d'audit. Masquer un bouton dans l'interface n'est que du confort.
 // La clé d'administration Supabase reste côté serveur (client.server).
+// Rôles : admin (propriétaire, tous les droits) ; veilleur (rôle restreint, D-WEB-11 : voir, lancer une veille, emails masqués).
 
 const DUREE_SUSPENSION = "876000h"; // environ 100 ans : suspension jusqu'à réactivation manuelle
+type Role = "admin" | "veilleur";
+type SB = Awaited<ReturnType<typeof clientAdmin>>;
 
-async function admin() {
+async function clientAdmin() {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   return supabaseAdmin;
 }
 
-async function exigerAdmin(userId: string) {
-  const sb = await admin();
-  const { data, error } = await sb.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle();
-  if (error || !data) throw new Error("Accès réservé à l'administrateur");
-  return sb;
+// Tables et fonctions ajoutées hors des types générés : accès non typé, toujours lié à son client (sinon « this » est perdu)
+interface Requete extends PromiseLike<{ data: unknown; error: unknown }> {
+  insert(v: object): Requete;
+  update(v: object): Requete;
+  delete(): Requete;
+  eq(k: string, v: unknown): Requete;
+}
+const table = (sb: SB, nom: string) => (sb.from as unknown as (n: string) => Requete).bind(sb)(nom);
+const rpc = (sb: SB, nom: string, args?: object) =>
+  (sb.rpc as unknown as (f: string, a?: object) => Promise<{ data: unknown; error: unknown }>).bind(sb)(nom, args);
+
+async function roleDe(sb: SB, userId: string): Promise<Role | null> {
+  const { data } = await sb.from("user_roles").select("role").eq("user_id", userId);
+  const roles = (data ?? []).map((r) => String(r.role));
+  return roles.includes("admin") ? "admin" : roles.includes("veilleur") ? "veilleur" : null;
 }
 
-/** Refuse une action sur son propre compte ou sur un autre administrateur. */
-async function exigerCible(sb: Awaited<ReturnType<typeof admin>>, appelant: string, cible: string) {
+/** Exige l'un des rôles listés ; renvoie le client serveur, le rôle et l'email de l'appelant (pour le journal).
+ *  Une tentative refusée d'un membre de l'équipe (veilleur sur une action d'admin) est inscrite au journal. */
+async function exiger(userId: string, autorises: Role[], action: string) {
+  const sb = await clientAdmin();
+  const role = await roleDe(sb, userId);
+  const email = role ? ((await sb.auth.admin.getUserById(userId)).data.user?.email ?? "") : "";
+  if (!role || !autorises.includes(role)) {
+    if (role) await journal({ sb, role, email }, userId, action, "", "rôle insuffisant", "refus");
+    throw new Error("Action non autorisée pour votre rôle");
+  }
+  return { sb, role, email };
+}
+
+type Qui = { sb: SB; role: Role; email: string };
+/** Journal d'audit, ajout seul : une ligne par action, réussie ou refusée. */
+async function journal(q: Qui, auteur: string, action: string, cible: string, detail = "", resultat = "ok") {
+  await table(q.sb, "admin_journal").insert({ auteur, auteur_email: q.email, role: q.role, action, cible, detail: detail.slice(0, 300), resultat });
+}
+
+/** Cible valide, jamais soi-même ni un administrateur. */
+async function exigerCible(sb: SB, appelant: string, cible: string) {
   if (!/^[0-9a-f-]{36}$/i.test(cible)) throw new Error("Identifiant invalide");
   if (cible === appelant) throw new Error("Action impossible sur votre propre compte");
-  const { data } = await sb.from("user_roles").select("role").eq("user_id", cible).eq("role", "admin").maybeSingle();
-  if (data) throw new Error("Action impossible sur un compte administrateur");
+  if ((await roleDe(sb, cible)) === "admin") throw new Error("Action impossible sur un compte administrateur");
+}
+
+const emailDe = async (sb: SB, id: string) => (await sb.auth.admin.getUserById(id)).data.user?.email ?? id;
+
+/** g***@d***.fr : ce que voit le veilleur. */
+export function masquer(email: string) {
+  const [loc = "", dom = ""] = email.split("@");
+  const p = dom.lastIndexOf(".");
+  return `${loc.slice(0, 1)}***@${dom.slice(0, 1)}***${p > 0 ? dom.slice(p) : ""}`;
 }
 
 export type UtilisateurAdmin = {
@@ -36,88 +76,124 @@ export type UtilisateurAdmin = {
   confirme: boolean;
   suspendu: boolean;
   admin: boolean;
+  role: "admin" | "veilleur" | "abonne";
   canal: "email" | "discord";
   nb_rubriques: number;
 };
 
 export const listerUtilisateurs = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<UtilisateurAdmin[]> => {
-    const sb = await exigerAdmin(context.userId);
+  .handler(async ({ context }): Promise<{ moi: Role; utilisateurs: UtilisateurAdmin[] }> => {
+    const q = await exiger(context.userId, ["admin", "veilleur"], "Lister les utilisateurs");
     const [{ data: users, error }, { data: profils }, { data: roles }] = await Promise.all([
-      sb.auth.admin.listUsers({ page: 1, perPage: 1000 }),
-      sb.from("profiles").select("id, canal, rubriques"),
-      sb.from("user_roles").select("user_id, role").eq("role", "admin"),
+      q.sb.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+      q.sb.from("profiles").select("id, canal, rubriques"),
+      q.sb.from("user_roles").select("user_id, role"),
     ]);
     if (error) throw new Error("Lecture des utilisateurs impossible");
     const p = new Map((profils ?? []).map((x) => [x.id, x]));
-    const admins = new Set((roles ?? []).map((r) => r.user_id));
+    const roleDeU = (id: string) => {
+      const r = (roles ?? []).filter((x) => x.user_id === id).map((x) => String(x.role));
+      return r.includes("admin") ? "admin" : r.includes("veilleur") ? "veilleur" : "abonne";
+    };
     const maintenant = Date.now();
-    return users.users
+    const utilisateurs = users.users
       .map((u) => {
         const prof = p.get(u.id);
         const bannedUntil = (u as { banned_until?: string | null }).banned_until;
+        const role = roleDeU(u.id);
         return {
           id: u.id,
-          email: u.email ?? "",
+          email: q.role === "admin" ? (u.email ?? "") : masquer(u.email ?? ""),
           fournisseur: String(u.app_metadata?.["provider"] ?? "email"),
           inscrit_le: u.created_at,
           derniere_connexion: u.last_sign_in_at ?? null,
           confirme: !!u.email_confirmed_at,
           suspendu: !!bannedUntil && Date.parse(bannedUntil) > maintenant,
-          admin: admins.has(u.id),
+          admin: role === "admin",
+          role,
           canal: prof?.canal === "discord" ? "discord" : "email",
           nb_rubriques: prof?.rubriques?.length ?? 0,
         } satisfies UtilisateurAdmin;
       })
       .sort((a, b) => Date.parse(b.inscrit_le) - Date.parse(a.inscrit_le));
+    return { moi: q.role, utilisateurs };
   });
+
+const avecId = (d: { id: string }) => ({ id: String(d?.id ?? "") });
+
+/** Action admin sur un compte : contrôle, exécution, journal (réussite comme refus). */
+async function agirSurCompte(userId: string, cible: string, action: string, faire: (sb: SB) => Promise<{ error: unknown }>) {
+  const q = await exiger(userId, ["admin"], action);
+  const email = await emailDe(q.sb, cible);
+  try {
+    await exigerCible(q.sb, userId, cible);
+    const { error } = await faire(q.sb);
+    if (error) throw new Error(`${action} impossible`);
+    await journal(q, userId, action, email);
+    return { ok: true };
+  } catch (e) {
+    await journal(q, userId, action, email, e instanceof Error ? e.message : "", "refus");
+    throw e;
+  }
+}
 
 export const suspendreUtilisateur = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { id: string }) => ({ id: String(d?.id ?? "") }))
-  .handler(async ({ context, data }) => {
-    const sb = await exigerAdmin(context.userId);
-    await exigerCible(sb, context.userId, data.id);
-    const { error } = await sb.auth.admin.updateUserById(data.id, { ban_duration: DUREE_SUSPENSION });
-    if (error) throw new Error("Suspension impossible");
-    return { ok: true };
-  });
+  .inputValidator(avecId)
+  .handler(({ context, data }) =>
+    agirSurCompte(context.userId, data.id, "Suspendre", (sb) => sb.auth.admin.updateUserById(data.id, { ban_duration: DUREE_SUSPENSION })),
+  );
 
 export const reactiverUtilisateur = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { id: string }) => ({ id: String(d?.id ?? "") }))
-  .handler(async ({ context, data }) => {
-    const sb = await exigerAdmin(context.userId);
-    await exigerCible(sb, context.userId, data.id);
-    const { error } = await sb.auth.admin.updateUserById(data.id, { ban_duration: "none" });
-    if (error) throw new Error("Réactivation impossible");
-    return { ok: true };
-  });
+  .inputValidator(avecId)
+  .handler(({ context, data }) =>
+    agirSurCompte(context.userId, data.id, "Réactiver", (sb) => sb.auth.admin.updateUserById(data.id, { ban_duration: "none" })),
+  );
 
 export const supprimerUtilisateur = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { id: string }) => ({ id: String(d?.id ?? "") }))
-  .handler(async ({ context, data }) => {
-    const sb = await exigerAdmin(context.userId);
-    await exigerCible(sb, context.userId, data.id);
-    const { error } = await sb.auth.admin.deleteUser(data.id);
-    if (error) throw new Error("Suppression impossible");
-    return { ok: true };
-  });
+  .inputValidator(avecId)
+  .handler(({ context, data }) => agirSurCompte(context.userId, data.id, "Supprimer", (sb) => sb.auth.admin.deleteUser(data.id)));
 
-/** Demande de veille à la demande : garde-fous appliqués en base (une à la fois, 15 min d'écart, 5 par jour). */
+/** Nommer ou retirer un veilleur : propriétaire seul, jamais sur soi ni sur un admin. */
+export const definirVeilleur = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { id: string; veilleur: boolean }) => ({ id: String(d?.id ?? ""), veilleur: d?.veilleur === true }))
+  .handler(({ context, data }) =>
+    agirSurCompte(context.userId, data.id, data.veilleur ? "Nommer veilleur" : "Retirer veilleur", async (sb) => {
+      if (!data.veilleur) return table(sb, "user_roles").delete().eq("user_id", data.id).eq("role", "veilleur");
+      if ((await roleDe(sb, data.id)) === "veilleur") return { error: null }; // déjà veilleur : rien à faire
+      return table(sb, "user_roles").insert({ user_id: data.id, role: "veilleur" });
+    }),
+  );
+
+/** Veille à la demande : admin et veilleur ; garde-fous en base (une à la fois, 15 min d'écart, 5 par jour). */
 export const lancerVeille = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const sb = await exigerAdmin(context.userId);
-    // Fonction ajoutée hors des types générés : appel non typé
-    const { data, error } = await (sb.rpc as unknown as (f: string, a: object) => Promise<{ data: unknown; error: unknown }>).bind(sb)(
-      "lancer_demande",
-      { p_user: context.userId },
-    );
-    if (error) throw new Error("Demande impossible");
-    const r = data as { ok: boolean; motif?: string };
-    if (!r.ok) throw new Error(r.motif ?? "Demande refusée");
+    const q = await exiger(context.userId, ["admin", "veilleur"], "Lancer une veille");
+    const { data, error } = await rpc(q.sb, "lancer_demande", { p_user: context.userId });
+    const r = (data ?? {}) as { ok?: boolean; motif?: string };
+    if (error || !r.ok) {
+      await journal(q, context.userId, "Lancer une veille", "file des demandes", r.motif ?? "erreur", "refus");
+      throw new Error(r.motif ?? "Demande impossible");
+    }
+    await journal(q, context.userId, "Lancer une veille", "file des demandes");
     return { ok: true };
+  });
+
+/** Mode test (D-WEB-16) : propriétaire seul ; tant qu'il est actif, la liste des abonnés transmise à n8n ne contient que l'équipe. */
+export const basculerModeTest = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { actif: boolean }) => ({ actif: d?.actif === true }))
+  .handler(async ({ context, data }) => {
+    const q = await exiger(context.userId, ["admin"], data.actif ? "Activer le mode test" : "Désactiver le mode test");
+    const { error } = await table(q.sb, "parametres")
+      .update({ valeur: data.actif, maj_le: new Date().toISOString(), maj_par: q.email })
+      .eq("cle", "mode_test");
+    if (error) throw new Error("Bascule impossible");
+    await journal(q, context.userId, data.actif ? "Activer le mode test" : "Désactiver le mode test", "mode_test");
+    return { ok: true, actif: data.actif };
   });

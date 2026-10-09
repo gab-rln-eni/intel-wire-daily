@@ -7,6 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 type AuthCtx = {
   user: User | null;
   isAdmin: boolean;
+  isVeilleur: boolean;
+  /** admin ou veilleur : accès à la console */
+  isStaff: boolean;
   ready: boolean;
   loginOpen: boolean;
   setLoginOpen: (v: boolean) => void;
@@ -19,6 +22,7 @@ const Ctx = createContext<AuthCtx | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isVeilleur, setIsVeilleur] = useState(false);
   const [ready, setReady] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [loginMode, setLoginMode] = useState<"signin" | "signup">("signin");
@@ -31,7 +35,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (u) {
         const { data } = await supabase.rpc("has_role", { _user_id: u.id, _role: "admin" });
         setIsAdmin(!!data);
-      } else setIsAdmin(false);
+        // Rôle ajouté hors des types générés (D-WEB-10)
+        const { data: v } = await supabase.rpc("has_role", { _user_id: u.id, _role: "veilleur" as "admin" });
+        setIsVeilleur(!!v);
+      } else {
+        setIsAdmin(false);
+        setIsVeilleur(false);
+      }
       setReady(true);
     };
     supabase.auth.getUser().then(({ data }) => check(data.user));
@@ -51,6 +61,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         isAdmin,
+        isVeilleur,
+        isStaff: isAdmin || isVeilleur,
         ready,
         loginOpen,
         setLoginOpen,
