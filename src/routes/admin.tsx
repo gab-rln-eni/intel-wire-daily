@@ -138,13 +138,18 @@ function Admin() {
   const utilisateurs = liste?.utilisateurs;
   const modeTest = data?.modeTest ?? false;
   const [bascule, setBascule] = useState<string | null>(null);
+  const [basculeEnCours, setBasculeEnCours] = useState(false);
   const basculerMode = async () => {
+    if (basculeEnCours) return; // un seul envoi à la fois (double clic)
+    setBasculeEnCours(true);
     setBascule(null);
     try {
       await basculer({ data: { actif: !modeTest } });
       await qc.invalidateQueries({ queryKey: ["admin"] });
     } catch (e) {
       setBascule(e instanceof Error ? e.message : "Bascule impossible");
+    } finally {
+      setBasculeEnCours(false);
     }
   };
 
@@ -195,11 +200,13 @@ function Admin() {
                 type="button"
                 role="switch"
                 aria-checked={modeTest}
+                aria-busy={basculeEnCours}
+                disabled={basculeEnCours}
                 onClick={basculerMode}
                 className={`flex items-center gap-2 border px-2 py-1 font-medium transition-colors ${modeTest ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground hover:border-ink3"}`}
               >
                 <span aria-hidden="true" className={`inline-block h-2 w-2 rounded-full ${modeTest ? "bg-primary-foreground" : "border border-ink3"}`} />
-                Mode test : {modeTest ? "activé" : "désactivé"}
+                Mode test : {basculeEnCours ? "..." : modeTest ? "activé" : "désactivé"}
               </button>
             ) : (
               <span className={modeTest ? "font-semibold text-primary" : ""}>Mode test : {modeTest ? "activé" : "désactivé"}</span>
@@ -897,7 +904,7 @@ function Sources({ donnees, estAdmin }: { donnees: DonneesSources | undefined; e
     setSaisie({ action, nom, url: "", categorie: "Autre", priorite: "1", motif: "" });
   };
   const envoyer = async () => {
-    if (!saisie) return;
+    if (!saisie || occupe) return;
     setOccupe(true);
     setErreur("");
     try {
@@ -916,7 +923,10 @@ function Sources({ donnees, estAdmin }: { donnees: DonneesSources | undefined; e
       setOccupe(false);
     }
   };
+  const [decision, setDecision] = useState<string | null>(null);
   const decider = async (a: ActionSrc, accepter: boolean) => {
+    if (decision) return;
+    setDecision(a.id);
     setMsg(null);
     try {
       await valider({ data: { id: a.id, accepter } });
@@ -924,6 +934,8 @@ function Sources({ donnees, estAdmin }: { donnees: DonneesSources | undefined; e
       await qc.invalidateQueries({ queryKey: ["admin-sources"] });
     } catch (e) {
       setMsg({ ok: false, texte: e instanceof Error ? e.message : "Action impossible." });
+    } finally {
+      setDecision(null);
     }
   };
   const champ = (k: keyof Saisie) => (e: { target: { value: string } }) => saisie && setSaisie({ ...saisie, [k]: e.target.value });
@@ -970,8 +982,8 @@ function Sources({ donnees, estAdmin }: { donnees: DonneesSources | undefined; e
                   <span className="block text-xs text-muted-foreground">Motif : {a.motif} | {a.auteur_email} | {formatDateTime(a.cree_le)}</span>
                 </span>
                 <span className="flex gap-2">
-                  <Button size="sm" className="h-8 px-2.5 text-xs" onClick={() => decider(a, true)}>Valider</Button>
-                  <Button size="sm" variant="outline" className="h-8 px-2.5 text-xs" onClick={() => decider(a, false)}>Rejeter</Button>
+                  <Button size="sm" className="h-8 px-2.5 text-xs" disabled={!!decision} onClick={() => decider(a, true)}>Valider</Button>
+                  <Button size="sm" variant="outline" className="h-8 px-2.5 text-xs" disabled={!!decision} onClick={() => decider(a, false)}>Rejeter</Button>
                 </span>
               </li>
             ))}

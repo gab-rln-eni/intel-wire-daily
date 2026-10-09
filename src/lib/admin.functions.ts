@@ -193,12 +193,15 @@ export const basculerModeTest = createServerFn({ method: "POST" })
   .inputValidator((d: { actif: boolean }) => ({ actif: d?.actif === true }))
   .handler(async ({ context, data }) => {
     const q = await exiger(context.userId, ["admin"], data.actif ? "Activer le mode test" : "Désactiver le mode test");
+    // Déjà dans l'état demandé (double clic, deux onglets) : rien à écrire, rien à journaliser
+    const { data: actuel } = await table(q.sb, "parametres").select("valeur").eq("cle", "mode_test").maybeSingle();
+    if (actuel && (actuel["valeur"] === true) === data.actif) return { ok: true, actif: data.actif, inchange: true };
     const { error } = await table(q.sb, "parametres")
       .update({ valeur: data.actif, maj_le: new Date().toISOString(), maj_par: q.email })
       .eq("cle", "mode_test");
     if (error) throw new Error("Bascule impossible");
     await journal(q, context.userId, data.actif ? "Activer le mode test" : "Désactiver le mode test", "mode_test");
-    return { ok: true, actif: data.actif };
+    return { ok: true, actif: data.actif, inchange: false };
   });
 
 /* Sources (D-WEB-9, D-WEB-17 b) : la console écrit une action dans une file ; n8n l'applique au classeur SOURCES
