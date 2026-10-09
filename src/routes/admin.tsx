@@ -23,6 +23,9 @@ import {
   basculerModeTest,
   CATEGORIES,
   definirVeilleur,
+  demanderNettoyage,
+  lancerMaintenance,
+  purgerJournal,
   proposerActionSource,
   validerActionSource,
   type ProposeSource,
@@ -260,6 +263,7 @@ function Admin() {
                 enAttente={enAttente}
                 suspendus={suspendus}
                 n8n={n8n}
+                estAdmin={estAdmin}
               />
             )}
             {section === "sources" && <Sources donnees={src} estAdmin={estAdmin} />}
@@ -298,7 +302,7 @@ function Titre({ label, titre, children }: { label: string; titre: string; child
   );
 }
 
-function Apercu({ syntheses, derniere, duJour, utilisateurs, enAttente, suspendus, n8n }: {
+function Apercu({ syntheses, derniere, duJour, utilisateurs, enAttente, suspendus, n8n, estAdmin }: {
   syntheses: Synthese[];
   derniere: Synthese | undefined;
   duJour: boolean;
@@ -306,6 +310,7 @@ function Apercu({ syntheses, derniere, duJour, utilisateurs, enAttente, suspendu
   enAttente: number;
   suspendus: number;
   n8n: EtatN8n;
+  estAdmin: boolean;
 }) {
   const lus = derniere?.nb_sources != null ? derniere.nb_sources - (derniere.nb_sources_echec ?? 0) : null;
   const recents = (utilisateurs ?? []).slice(0, 5);
@@ -381,7 +386,207 @@ function Apercu({ syntheses, derniere, duJour, utilisateurs, enAttente, suspendu
           ))}
         </ul>
       </section>
+
+      {estAdmin && <Maintenance />}
     </>
+  );
+}
+
+/* ---------- Maintenance des données (M-1 à M-6) : admin seul, chaque action confirmée ---------- */
+
+type EtatMaintenance = { le?: string; par?: string; erreur?: string; resultat?: Record<string, number> } | null;
+type Nettoyage = { id: string; cree_le: string; salon: string; portee: string; mode: string; statut: string; supprimes: number; detail: string | null; termine_le: string | null };
+
+const LIBELLES_PURGE: Record<string, string> = {
+  demandes: "demande",
+  journal: "ligne de journal",
+  actions_sources: "action sur source",
+  lectures: "lecture",
+  syntheses: "synthèse",
+  comptes_non_confirmes: "compte non confirmé",
+  nettoyages: "nettoyage",
+};
+
+function resumePurge(r: Record<string, number> | undefined) {
+  const l = Object.entries(r ?? {}).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${LIBELLES_PURGE[k] ?? k}${n > 1 ? "s" : ""}`);
+  return l.length ? `Purge : ${l.join(", ")}` : "Rien à purger";
+}
+
+type Dialogue = { type: "maintenance" } | { type: "journal"; jours: number; saisie: string } | { type: "salon"; salon: "alertes" | "assistant"; portee: "30j" | "tout" } | null;
+
+function Maintenance() {
+  const qc = useQueryClient();
+  const maintenir = useServerFn(lancerMaintenance);
+  const purger = useServerFn(purgerJournal);
+  const nettoyer = useServerFn(demanderNettoyage);
+  const [dlg, setDlg] = useState<Dialogue>(null);
+  const [occupe, setOccupe] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; texte: string } | null>(null);
+  const { data } = useQuery({
+    queryKey: ["admin-maintenance"],
+    refetchInterval: (q) => (q.state.data?.nettoyages.some((n) => n.statut === "en_attente" || n.statut === "prise") ? 10000 : 60000),
+    queryFn: async () => {
+      // Tables ajoutées hors des types générés : accès non typé, lié à son client
+      const lire = (supabase.from as unknown as (t: string) => {
+        select: (c: string) => {
+          eq: (k: string, v: string) => { maybeSingle: () => Promise<{ data: { valeur: unknown } | null }> };
+          order: (k: string, o: object) => { limit: (n: number) => Promise<{ data: unknown[] | null }> };
+        };
+      }).bind(supabase);
+      const [p, n] = await Promise.all([
+        lire("parametres").select("valeur").eq("cle", "maintenance").maybeSingle(),
+        lire("nettoyages_salons").select("id, cree_le, salon, portee, mode, statut, supprimes, detail, termine_le").order("cree_le", { ascending: false }).limit(4),
+      ]);
+      return { etat: (p.data?.valeur ?? null) as EtatMaintenance, nettoyages: (n.data ?? []) as Nettoyage[] };
+    },
+  });
+  const etat = data?.etat;
+
+  const confirmer = async () => {
+    if (!dlg || occupe) return;
+    setOccupe(true);
+    setMsg(null);
+    try {
+      if (dlg.type === "maintenance") {
+        const r = await maintenir();
+        setMsg({ ok: true, texte: `Maintenance faite. ${resumePurge(r.resultat)}.` });
+      } else if (dlg.type === "journal") {
+        const r = await purger({ data: { jours: dlg.jours } });
+        setMsg({ ok: true, texte: `Journal purgé : ${r.supprimees} ligne${r.supprimees > 1 ? "s" : ""} de plus de ${dlg.jours} jours effacée${r.supprimees > 1 ? "s" : ""}. La purge est inscrite au journal.` });
+        await qc.invalidateQueries({ queryKey: ["admin-journal"] });
+      } else {
+        await nettoyer({ data: { salon: dlg.salon, portee: dlg.portee } });
+        setMsg({ ok: true, texte: `Nettoyage de #${dlg.salon} transmis : n8n l'applique sous 2 minutes environ (PC allumé).` });
+      }
+      setDlg(null);
+      await qc.invalidateQueries({ queryKey: ["admin-maintenance"] });
+    } catch (e) {
+      setMsg({ ok: false, texte: e instanceof Error ? e.message : "Action impossible." });
+      setDlg(null);
+    } finally {
+      setOccupe(false);
+    }
+  };
+  const peutConfirmer = !occupe && !(dlg?.type === "journal" && dlg.saisie.trim().toUpperCase() !== "PURGER");
+
+  return (
+    <section aria-labelledby="maintenance" className="mt-6">
+      <h2 id="maintenance" className="label-section mb-3">Maintenance des données</h2>
+      <div className="border border-border text-[13px]">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+          <p className="flex min-w-0 items-start gap-2.5">
+            <span className="mt-1.5"><Point etat={etat?.erreur ? "alerte" : etat?.le ? "ok" : "neutre"} /></span>
+            <span>
+              {etat?.le ? (
+                <>
+                  <b className="font-semibold text-foreground">Dernier passage : {formatDateTime(etat.le)}</b>
+                  <span className="text-muted-foreground"> ({etat.par === "automatique" || !etat.par ? "automatique" : etat.par})</span>
+                  <span className={`block text-xs ${etat.erreur ? "text-primary" : "text-muted-foreground"}`}>
+                    {etat.erreur ? `Erreur : ${etat.erreur}` : resumePurge(etat.resultat)}
+                  </span>
+                </>
+              ) : (
+                <span className="text-muted-foreground">Pas encore de passage : la maintenance tourne d'elle même une fois par jour, au relevé de n8n.</span>
+              )}
+            </span>
+          </p>
+          <span className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" className="h-8 px-2.5 text-xs" onClick={() => setDlg({ type: "maintenance" })}>Lancer la maintenance</Button>
+            <Button size="sm" variant="outline" className="h-8 px-2.5 text-xs" onClick={() => setDlg({ type: "salon", salon: "assistant", portee: "30j" })}>Nettoyer un salon</Button>
+            <Button size="sm" variant="outline" className="h-8 px-2.5 text-xs" onClick={() => setDlg({ type: "journal", jours: 90, saisie: "" })}>Purger le journal</Button>
+          </span>
+        </div>
+        {(data?.nettoyages.length ?? 0) > 0 && (
+          <ul className="divide-y divide-line2 border-t border-border">
+            {data!.nettoyages.map((n) => (
+              <li key={n.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2 text-xs">
+                <span className="inline-flex items-center gap-2 text-foreground">
+                  <Point etat={n.statut === "terminee" ? "ok" : n.statut === "echec" ? "alerte" : "attente"} />
+                  #{n.salon} | {n.portee === "tout" ? "tous les messages" : "plus de 30 jours"} | {n.mode === "auto" ? "automatique" : "manuel"}
+                </span>
+                <span className={n.statut === "echec" ? "text-primary" : "text-muted-foreground"}>
+                  {n.statut === "en_attente" ? `en file${n.supprimes ? `, ${n.supprimes} supprimés` : ""}` : n.statut === "prise" ? "en cours dans n8n" : n.statut === "terminee" ? `${n.supprimes} message${n.supprimes > 1 ? "s" : ""} supprimé${n.supprimes > 1 ? "s" : ""}` : `échec${n.detail ? ` : ${n.detail}` : ""}`}
+                  {" | "}
+                  {formatDateTime(n.termine_le ?? n.cree_le)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      {msg && <p role="status" className={`mt-2 text-sm ${msg.ok ? "text-foreground" : "text-destructive"}`}>{msg.texte}</p>}
+      <p className="mt-2 text-xs text-muted-foreground">
+        Durées : demandes 90 jours, lectures 90 jours, synthèses 12 mois, journal 12 mois, comptes non confirmés 30 jours.
+        Salons : #alertes et #assistant nettoyés chaque jour au delà de 30 jours ; #synthese-du-jour conservé.
+      </p>
+
+      <AlertDialog open={dlg !== null} onOpenChange={(o) => !o && !occupe && setDlg(null)}>
+        <AlertDialogContent>
+          {dlg && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (peutConfirmer) confirmer();
+              }}
+              className="space-y-4"
+            >
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {dlg.type === "maintenance" ? "Lancer la maintenance maintenant ?" : dlg.type === "journal" ? "Purger le journal d'audit ?" : "Nettoyer un salon Discord ?"}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {dlg.type === "maintenance"
+                    ? "Les données arrivées au bout de leur durée de conservation sont effacées définitivement (voir les durées sous la carte)."
+                    : dlg.type === "journal"
+                      ? "Les lignes plus anciennes que la durée choisie sont effacées définitivement. La purge elle même reste inscrite au journal, sans pouvoir être effacée."
+                      : "Les messages du salon sont supprimés définitivement par le bot n8n. Les messages épinglés sont conservés."}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              {dlg.type === "journal" && (
+                <div className="grid gap-3">
+                  <label className="grid gap-1 text-[13px]">
+                    Effacer les lignes de plus de
+                    <select value={dlg.jours} onChange={(e) => setDlg({ ...dlg, jours: Number(e.target.value) })} className="h-9 border border-input bg-background px-2 text-[13px]">
+                      <option value={90}>90 jours</option>
+                      <option value={180}>180 jours</option>
+                      <option value={365}>365 jours</option>
+                    </select>
+                  </label>
+                  <label className="grid gap-1 text-[13px]">
+                    Pour confirmer, tapez PURGER
+                    <Input value={dlg.saisie} onChange={(e) => setDlg({ ...dlg, saisie: e.target.value })} autoComplete="off" className="font-mono" />
+                  </label>
+                </div>
+              )}
+              {dlg.type === "salon" && (
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="grid gap-1 text-[13px]">
+                    Salon
+                    <select value={dlg.salon} onChange={(e) => setDlg({ ...dlg, salon: e.target.value as "alertes" | "assistant" })} className="h-9 border border-input bg-background px-2 text-[13px]">
+                      <option value="assistant">#assistant</option>
+                      <option value="alertes">#alertes</option>
+                    </select>
+                  </label>
+                  <label className="grid gap-1 text-[13px]">
+                    Messages
+                    <select value={dlg.portee} onChange={(e) => setDlg({ ...dlg, portee: e.target.value as "30j" | "tout" })} className="h-9 border border-input bg-background px-2 text-[13px]">
+                      <option value="30j">de plus de 30 jours</option>
+                      <option value="tout">tous</option>
+                    </select>
+                  </label>
+                </div>
+              )}
+              <AlertDialogFooter>
+                <AlertDialogCancel type="button" disabled={occupe}>Annuler</AlertDialogCancel>
+                <Button type="submit" variant={dlg.type === "maintenance" ? "default" : "destructive"} disabled={!peutConfirmer}>
+                  {occupe ? "Envoi..." : dlg.type === "maintenance" ? "Lancer" : dlg.type === "journal" ? "Purger" : "Nettoyer"}
+                </Button>
+              </AlertDialogFooter>
+            </form>
+          )}
+        </AlertDialogContent>
+      </AlertDialog>
+    </section>
   );
 }
 

@@ -17,6 +17,8 @@ import { Route as ApiPublicActionSourceSuivanteRouteImport } from './routes/api/
 import { Route as ApiPublicDemandeStatutRouteImport } from './routes/api/public/demande-statut'
 import { Route as ApiPublicDemandesSuivanteRouteImport } from './routes/api/public/demandes-suivante'
 import { Route as ApiPublicListerAbonnesRouteImport } from './routes/api/public/lister-abonnes'
+import { Route as ApiPublicNettoyageStatutRouteImport } from './routes/api/public/nettoyage-statut'
+import { Route as ApiPublicNettoyageSuivantRouteImport } from './routes/api/public/nettoyage-suivant'
 import { Route as ApiPublicPublierSourcesRouteImport } from './routes/api/public/publier-sources'
 import { Route as ApiPublicPublierSyntheseRouteImport } from './routes/api/public/publier-synthese'
 
@@ -63,6 +65,18 @@ const ApiPublicListerAbonnesRoute = ApiPublicListerAbonnesRouteImport.update({
   path: '/api/public/lister-abonnes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicNettoyageStatutRoute =
+  ApiPublicNettoyageStatutRouteImport.update({
+    id: '/api/public/nettoyage-statut',
+    path: '/api/public/nettoyage-statut',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicNettoyageSuivantRoute =
+  ApiPublicNettoyageSuivantRouteImport.update({
+    id: '/api/public/nettoyage-suivant',
+    path: '/api/public/nettoyage-suivant',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicPublierSourcesRoute = ApiPublicPublierSourcesRouteImport.update({
   id: '/api/public/publier-sources',
   path: '/api/public/publier-sources',
@@ -84,6 +98,8 @@ export interface FileRoutesByFullPath {
   '/api/public/demande-statut': typeof ApiPublicDemandeStatutRoute
   '/api/public/demandes-suivante': typeof ApiPublicDemandesSuivanteRoute
   '/api/public/lister-abonnes': typeof ApiPublicListerAbonnesRoute
+  '/api/public/nettoyage-statut': typeof ApiPublicNettoyageStatutRoute
+  '/api/public/nettoyage-suivant': typeof ApiPublicNettoyageSuivantRoute
   '/api/public/publier-sources': typeof ApiPublicPublierSourcesRoute
   '/api/public/publier-synthese': typeof ApiPublicPublierSyntheseRoute
 }
@@ -96,6 +112,8 @@ export interface FileRoutesByTo {
   '/api/public/demande-statut': typeof ApiPublicDemandeStatutRoute
   '/api/public/demandes-suivante': typeof ApiPublicDemandesSuivanteRoute
   '/api/public/lister-abonnes': typeof ApiPublicListerAbonnesRoute
+  '/api/public/nettoyage-statut': typeof ApiPublicNettoyageStatutRoute
+  '/api/public/nettoyage-suivant': typeof ApiPublicNettoyageSuivantRoute
   '/api/public/publier-sources': typeof ApiPublicPublierSourcesRoute
   '/api/public/publier-synthese': typeof ApiPublicPublierSyntheseRoute
 }
@@ -109,6 +127,8 @@ export interface FileRoutesById {
   '/api/public/demande-statut': typeof ApiPublicDemandeStatutRoute
   '/api/public/demandes-suivante': typeof ApiPublicDemandesSuivanteRoute
   '/api/public/lister-abonnes': typeof ApiPublicListerAbonnesRoute
+  '/api/public/nettoyage-statut': typeof ApiPublicNettoyageStatutRoute
+  '/api/public/nettoyage-suivant': typeof ApiPublicNettoyageSuivantRoute
   '/api/public/publier-sources': typeof ApiPublicPublierSourcesRoute
   '/api/public/publier-synthese': typeof ApiPublicPublierSyntheseRoute
 }
@@ -123,6 +143,8 @@ export interface FileRouteTypes {
     | '/api/public/demande-statut'
     | '/api/public/demandes-suivante'
     | '/api/public/lister-abonnes'
+    | '/api/public/nettoyage-statut'
+    | '/api/public/nettoyage-suivant'
     | '/api/public/publier-sources'
     | '/api/public/publier-synthese'
   fileRoutesByTo: FileRoutesByTo
@@ -135,6 +157,8 @@ export interface FileRouteTypes {
     | '/api/public/demande-statut'
     | '/api/public/demandes-suivante'
     | '/api/public/lister-abonnes'
+    | '/api/public/nettoyage-statut'
+    | '/api/public/nettoyage-suivant'
     | '/api/public/publier-sources'
     | '/api/public/publier-synthese'
   id:
@@ -147,6 +171,8 @@ export interface FileRouteTypes {
     | '/api/public/demande-statut'
     | '/api/public/demandes-suivante'
     | '/api/public/lister-abonnes'
+    | '/api/public/nettoyage-statut'
+    | '/api/public/nettoyage-suivant'
     | '/api/public/publier-sources'
     | '/api/public/publier-synthese'
   fileRoutesById: FileRoutesById
@@ -160,6 +186,8 @@ export interface RootRouteChildren {
   ApiPublicDemandeStatutRoute: typeof ApiPublicDemandeStatutRoute
   ApiPublicDemandesSuivanteRoute: typeof ApiPublicDemandesSuivanteRoute
   ApiPublicListerAbonnesRoute: typeof ApiPublicListerAbonnesRoute
+  ApiPublicNettoyageStatutRoute: typeof ApiPublicNettoyageStatutRoute
+  ApiPublicNettoyageSuivantRoute: typeof ApiPublicNettoyageSuivantRoute
   ApiPublicPublierSourcesRoute: typeof ApiPublicPublierSourcesRoute
   ApiPublicPublierSyntheseRoute: typeof ApiPublicPublierSyntheseRoute
 }
@@ -222,6 +250,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicListerAbonnesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/nettoyage-statut': {
+      id: '/api/public/nettoyage-statut'
+      path: '/api/public/nettoyage-statut'
+      fullPath: '/api/public/nettoyage-statut'
+      preLoaderRoute: typeof ApiPublicNettoyageStatutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/nettoyage-suivant': {
+      id: '/api/public/nettoyage-suivant'
+      path: '/api/public/nettoyage-suivant'
+      fullPath: '/api/public/nettoyage-suivant'
+      preLoaderRoute: typeof ApiPublicNettoyageSuivantRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/publier-sources': {
       id: '/api/public/publier-sources'
       path: '/api/public/publier-sources'
@@ -248,6 +290,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicDemandeStatutRoute: ApiPublicDemandeStatutRoute,
   ApiPublicDemandesSuivanteRoute: ApiPublicDemandesSuivanteRoute,
   ApiPublicListerAbonnesRoute: ApiPublicListerAbonnesRoute,
+  ApiPublicNettoyageStatutRoute: ApiPublicNettoyageStatutRoute,
+  ApiPublicNettoyageSuivantRoute: ApiPublicNettoyageSuivantRoute,
   ApiPublicPublierSourcesRoute: ApiPublicPublierSourcesRoute,
   ApiPublicPublierSyntheseRoute: ApiPublicPublierSyntheseRoute,
 }

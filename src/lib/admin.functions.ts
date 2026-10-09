@@ -307,3 +307,52 @@ export const validerActionSource = createServerFn({ method: "POST" })
     await journal(q, context.userId, intitule, `${String(a["action"])} ${String(a["nom"])}`);
     return { ok: true };
   });
+
+/* Maintenance et nettoyage des données (visa G_R, M-1 à M-6) : admin seul ; les règles et la trace sont en base. */
+
+/** Lancer la maintenance tout de suite (sinon elle passe d'elle même une fois par 24 h). */
+export const lancerMaintenance = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const q = await exiger(context.userId, ["admin"], "Maintenance des données");
+    const { data, error } = await rpc(q.sb, "maintenance_executer", { p_force: true, p_auteur: context.userId, p_email: q.email });
+    if (error) {
+      await journal(q, context.userId, "Maintenance des données", "base", "erreur", "refus");
+      throw new Error("Maintenance impossible");
+    }
+    return data as { fait: boolean; resultat: Record<string, number> };
+  });
+
+/** Purger le journal au delà de N jours (90 au minimum, contrôlé aussi en base) ; la purge laisse une trace indélébile. */
+export const purgerJournal = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { jours: number }) => ({ jours: Math.trunc(Number(d?.jours)) }))
+  .handler(async ({ context, data }) => {
+    const q = await exiger(context.userId, ["admin"], "Purger le journal");
+    if (![90, 180, 365].includes(data.jours)) throw new Error("Durée invalide (90, 180 ou 365 jours)");
+    const { data: r, error } = await rpc(q.sb, "purger_journal", { p_jours: data.jours, p_auteur: context.userId, p_email: q.email });
+    const res = (r ?? {}) as { ok?: boolean; supprimees?: number; motif?: string };
+    if (error || !res.ok) throw new Error(res.motif ?? "Purge impossible");
+    return { ok: true, supprimees: res.supprimees ?? 0 };
+  });
+
+/** Demander le nettoyage d'un salon Discord : n8n l'applique avec son bot (liste fermée de salons et de portées). */
+export const demanderNettoyage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { salon: string; portee: string }) => ({
+    salon: d?.salon === "assistant" ? "assistant" : d?.salon === "alertes" ? "alertes" : "",
+    portee: d?.portee === "tout" ? "tout" : d?.portee === "30j" ? "30j" : "",
+  }))
+  .handler(async ({ context, data }) => {
+    const intitule = "Nettoyer un salon";
+    const q = await exiger(context.userId, ["admin"], intitule);
+    if (!data.salon || !data.portee) throw new Error("Salon ou portée invalide");
+    const cible = `#${data.salon} (${data.portee === "tout" ? "tous les messages" : "plus de 30 jours"})`;
+    const { error } = await table(q.sb, "nettoyages_salons").insert({ salon: data.salon, portee: data.portee, mode: "manuel", auteur_email: q.email });
+    if (error) {
+      await journal(q, context.userId, intitule, cible, "erreur", "refus");
+      throw new Error("Demande impossible");
+    }
+    await journal(q, context.userId, intitule, cible, "transmise à n8n");
+    return { ok: true };
+  });
