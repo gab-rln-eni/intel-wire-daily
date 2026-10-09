@@ -9,7 +9,8 @@ export const Route = createFileRoute("/api/public/demandes-suivante")({
       POST: async ({ request }) => {
         if (!verifierSecret(request)) return json({ error: "Non autorisé" }, 401);
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const rpc = supabaseAdmin.rpc as unknown as (f: string, a?: object) => Promise<{ data: unknown; error: unknown }>;
+        // Fonction ajoutée hors des types générés ; bind indispensable : rpc détachée de son client plante (« this » perdu)
+        const rpc = (supabaseAdmin.rpc as unknown as (f: string, a?: object) => Promise<{ data: unknown; error: unknown }>).bind(supabaseAdmin);
         const { data, error } = await rpc("prendre_demande");
         if (error) return json({ error: "Lecture impossible" }, 500);
         const d = (data as { demande: { id: string } | null }).demande;

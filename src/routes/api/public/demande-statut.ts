@@ -18,7 +18,8 @@ export const Route = createFileRoute("/api/public/demande-statut")({
         if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "id invalide" }, 400);
         const erreur = typeof body["erreur"] === "string" ? (body["erreur"] as string).slice(0, 300) : "";
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const rpc = supabaseAdmin.rpc as unknown as (f: string, a?: object) => Promise<{ data: unknown; error: unknown }>;
+        // Fonction ajoutée hors des types générés ; bind indispensable : rpc détachée de son client plante (« this » perdu)
+        const rpc = (supabaseAdmin.rpc as unknown as (f: string, a?: object) => Promise<{ data: unknown; error: unknown }>).bind(supabaseAdmin);
         const { data, error } = await rpc("terminer_demande", { p_id: id, p_erreur: erreur });
         if (error) return json({ error: "Écriture impossible" }, 500);
         return json(data);

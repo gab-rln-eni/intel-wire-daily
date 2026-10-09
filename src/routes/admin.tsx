@@ -98,7 +98,7 @@ function Admin() {
         supabase.from("syntheses").select("*").order("date_veille", { ascending: false }),
         supabase.from("demandes").select("*").order("created_at", { ascending: false }).limit(30),
         // Table ajoutée hors des types générés (signe de vie de n8n)
-        (supabase.from as unknown as (t: string) => { select: (c: string) => { maybeSingle: () => Promise<{ data: { dernier_appel: string | null } | null }> } })(
+        (supabase.from as unknown as (t: string) => { select: (c: string) => { maybeSingle: () => Promise<{ data: { dernier_appel: string | null } | null }> } }).bind(supabase)(
           "chaine_etat",
         )
           .select("dernier_appel")

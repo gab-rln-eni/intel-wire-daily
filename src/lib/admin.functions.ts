@@ -112,7 +112,7 @@ export const lancerVeille = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     const sb = await exigerAdmin(context.userId);
     // Fonction ajoutée hors des types générés : appel non typé
-    const { data, error } = await (sb.rpc as unknown as (f: string, a: object) => Promise<{ data: unknown; error: unknown }>)(
+    const { data, error } = await (sb.rpc as unknown as (f: string, a: object) => Promise<{ data: unknown; error: unknown }>).bind(sb)(
       "lancer_demande",
       { p_user: context.userId },
     );
