@@ -156,7 +156,12 @@ function Admin() {
   const enAttente = demandes.filter((d) => d.statut === "en_attente" || d.statut === "prise").length;
   const n8n = etatN8n(data?.dernierAppel ?? null);
   const suspendus = utilisateurs?.filter((u) => u.suspendu).length ?? 0;
-  const { data: src } = useQuery({ queryKey: ["admin-sources"], refetchInterval: 30000, queryFn: lireSources });
+  const { data: src } = useQuery({
+    queryKey: ["admin-sources"],
+    queryFn: lireSources,
+    // Suivi en direct : toutes les 10 s tant qu'une action est ouverte, sinon toutes les 30 s
+    refetchInterval: (q) => (q.state.data?.actions.some((a) => ouverte(a.statut)) ? 10000 : 30000),
+  });
   const aValider = estAdmin ? (src?.actions.filter((a) => a.statut === "a_valider").length ?? 0) : 0;
 
   const menu: { s: Section; texte: string; n?: number | undefined }[] = [
@@ -816,6 +821,32 @@ const STATUTS_ACTION: Record<string, string> = {
   annulee: "Rejetée",
 };
 const ouverte = (st: string) => st === "a_valider" || st === "en_attente" || st === "prise";
+/** Action close depuis moins de 15 minutes : son résultat reste affiché sur la ligne. */
+const recent = (a: ActionSrc) => !ouverte(a.statut) && Date.now() - Date.parse(a.traite_le ?? a.cree_le) < 15 * 60000;
+
+/** Suivi d'une action sur la ligne de sa source : où elle en est, ou son résultat récent. */
+function SuiviAction({ a }: { a: ActionSrc }) {
+  const etat: Etat = a.statut === "appliquee" ? "ok" : a.statut === "refusee" ? "alerte" : ouverte(a.statut) ? "attente" : "neutre";
+  const geste = { Ajouter: "Ajout", Activer: "Activation", Désactiver: "Désactivation" }[a.action] ?? a.action;
+  const texte =
+    a.statut === "en_attente"
+      ? `${geste} | en file depuis ${heure(a.cree_le)}, n8n sous 2 min`
+      : a.statut === "prise"
+        ? `${geste} | en cours dans n8n`
+        : a.statut === "a_valider"
+          ? `${geste} | à valider par l'admin`
+          : a.statut === "appliquee"
+            ? `${geste} | faite à ${heure(a.traite_le)}`
+            : a.statut === "refusee"
+              ? `${geste} | refus à ${heure(a.traite_le)}${a.detail ? ` : ${a.detail}` : ""}`
+              : `${geste} | rejet à ${heure(a.traite_le)}`;
+  return (
+    <span role="status" className={`inline-flex items-start gap-1.5 text-left text-xs ${etat === "alerte" ? "text-primary" : "text-muted-foreground"}`}>
+      <span className="mt-1"><Point etat={etat} /></span>
+      <span>{texte}</span>
+    </span>
+  );
+}
 
 function santeDe(s: SourceMiroir): { etat: Etat; texte: string } {
   if (!s.active) return { etat: "neutre", texte: "Inactive" };
@@ -842,9 +873,14 @@ function Sources({ donnees, estAdmin }: { donnees: DonneesSources | undefined; e
 
   const sources = useMemo(() => donnees?.sources ?? [], [donnees]);
   const actions = donnees?.actions ?? [];
-  const enCours = new Set(actions.filter((a) => ouverte(a.statut)).map((a) => a.nom));
+  // Dernière action par source (liste triée de la plus récente à la plus ancienne) : le suivi s'affiche sur la ligne même
+  const derniere = new Map<string, ActionSrc>();
+  for (const a of actions) if (!derniere.has(a.nom)) derniere.set(a.nom, a);
   const aValider = actions.filter((a) => a.statut === "a_valider");
-  const recentes = actions.filter((a) => a.statut !== "a_valider").slice(0, 8);
+  const connues = new Set(sources.map((s) => s.nom.toLowerCase()));
+  // Ajouts pas encore dans le miroir : affichés en tête du tableau, pour suivre l'ajout sans chercher
+  const ajouts = actions.filter((a) => a.action === "Ajouter" && !connues.has(a.nom.toLowerCase()) && (ouverte(a.statut) || recent(a)));
+  const historique = actions.filter((a) => a.statut !== "a_valider");
   const compte = (f: FiltreSrc) =>
     sources.filter((s) => f === "toutes" || (f === "actives" ? s.active : f === "inactives" ? !s.active : santeDe(s).etat === "alerte")).length;
   const liste = useMemo(() => {
@@ -871,7 +907,7 @@ function Sources({ donnees, estAdmin }: { donnees: DonneesSources | undefined; e
         ok: true,
         texte: r.a_valider
           ? `${saisie.action} « ${saisie.nom} » : soumise à la validation de l'administrateur.`
-          : `${saisie.action} « ${saisie.nom} » : transmise, n8n l'applique sous 2 minutes environ (PC allumé).`,
+          : `${saisie.action} « ${saisie.nom} » : transmise ; le suivi s'affiche sur la ligne de la source.`,
       });
       await qc.invalidateQueries({ queryKey: ["admin-sources"] });
     } catch (e) {
@@ -964,8 +1000,19 @@ function Sources({ donnees, estAdmin }: { donnees: DonneesSources | undefined; e
                 </TableCell>
               </TableRow>
             )}
+            {ajouts.map((a) => (
+              <TableRow key={a.id} className="bg-muted/40">
+                <TableCell className="max-w-[22rem]">
+                  <p className="text-[13px] font-medium text-foreground">{a.nom} <span className="ml-1 border border-border px-1 text-[0.65rem] uppercase tracking-wide text-ink3">nouvelle</span></p>
+                  {a.url && <p className="truncate font-mono text-xs text-ink3" title={a.url}>{a.url}</p>}
+                </TableCell>
+                <TableCell className="text-[13px] text-ink3" colSpan={4}>Pas encore dans le classeur</TableCell>
+                <TableCell className="text-right"><SuiviAction a={a} /></TableCell>
+              </TableRow>
+            ))}
             {liste.map((s) => {
               const sante = santeDe(s);
+              const suivi = derniere.get(s.nom);
               return (
                 <TableRow key={s.nom} className={s.active ? undefined : "opacity-70"}>
                   <TableCell className="max-w-[22rem]">
@@ -979,17 +1026,18 @@ function Sources({ donnees, estAdmin }: { donnees: DonneesSources | undefined; e
                       <Point etat={sante.etat} />
                       {sante.texte}
                     </span>
-                    {s.sante_le && s.active && <span className="block text-xs text-ink3">relevé du {formatDate(s.sante_le)}</span>}
+                    {s.sante_le && s.active && <span className="block whitespace-nowrap text-xs text-ink3">relevé du {court(s.sante_le)}</span>}
                   </TableCell>
                   <TableCell className="text-right font-mono text-xs">{s.nb_articles ?? "-"}</TableCell>
-                  <TableCell className="text-right">
-                    {enCours.has(s.nom) ? (
-                      <span className="text-xs text-ink3">Action en cours</span>
-                    ) : (
-                      <Button size="sm" variant="outline" className="h-8 px-2.5 text-xs" onClick={() => ouvrir(s.active ? "Désactiver" : "Activer", s.nom)}>
-                        {s.active ? "Désactiver" : "Activer"}
-                      </Button>
-                    )}
+                  <TableCell className="w-56 text-right">
+                    <div className="flex flex-col items-end gap-1.5">
+                      {suivi && (ouverte(suivi.statut) || recent(suivi)) && <SuiviAction a={suivi} />}
+                      {!(suivi && ouverte(suivi.statut)) && (
+                        <Button size="sm" variant="outline" className="h-8 px-2.5 text-xs" onClick={() => ouvrir(s.active ? "Désactiver" : "Activer", s.nom)}>
+                          {s.active ? "Désactiver" : "Activer"}
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               );
@@ -998,11 +1046,13 @@ function Sources({ donnees, estAdmin }: { donnees: DonneesSources | undefined; e
         </Table>
       </div>
 
-      {recentes.length > 0 && (
-        <div>
-          <h2 className="label-section mb-2">Dernières actions sur les sources</h2>
-          <ul className="divide-y divide-border border border-border text-[13px]">
-            {recentes.map((a) => (
+      {historique.length > 0 && (
+        <details className="group border border-border">
+          <summary className="cursor-pointer select-none px-4 py-2 text-[13px] text-muted-foreground hover:text-foreground">
+            Historique des actions sur les sources ({historique.length})
+          </summary>
+          <ul className="divide-y divide-border border-t border-border text-[13px]">
+            {historique.map((a) => (
               <li key={a.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2">
                 <span className="inline-flex min-w-0 items-center gap-2">
                   <Point etat={a.statut === "appliquee" ? "ok" : a.statut === "refusee" ? "alerte" : ouverte(a.statut) ? "attente" : "neutre"} />
@@ -1015,7 +1065,7 @@ function Sources({ donnees, estAdmin }: { donnees: DonneesSources | undefined; e
               </li>
             ))}
           </ul>
-        </div>
+        </details>
       )}
 
       <p className="text-xs text-muted-foreground">
