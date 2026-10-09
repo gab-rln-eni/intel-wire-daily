@@ -20,6 +20,7 @@ import {
 import { Segments } from "@/components/Segments";
 import { Marque } from "@/components/Layout";
 import {
+  lancerVeille,
   listerUtilisateurs,
   reactiverUtilisateur,
   supprimerUtilisateur,
@@ -62,7 +63,7 @@ const STATUTS: Record<string, string> = {
   en_cours: "En cours",
   echec: "Échec",
   en_attente: "En attente",
-  prise: "Prise en charge",
+  prise: "En cours",
   terminee: "Terminée",
 };
 
@@ -91,12 +92,23 @@ function Admin() {
 
   const { data } = useQuery({
     queryKey: ["admin"],
+    refetchInterval: 30000,
     queryFn: async () => {
-      const [syn, dem] = await Promise.all([
+      const [syn, dem, ch] = await Promise.all([
         supabase.from("syntheses").select("*").order("date_veille", { ascending: false }),
-        supabase.from("demandes").select("*").order("created_at", { ascending: false }),
+        supabase.from("demandes").select("*").order("created_at", { ascending: false }).limit(30),
+        // Table ajoutée hors des types générés (signe de vie de n8n)
+        (supabase.from as unknown as (t: string) => { select: (c: string) => { maybeSingle: () => Promise<{ data: { dernier_appel: string | null } | null }> } })(
+          "chaine_etat",
+        )
+          .select("dernier_appel")
+          .maybeSingle(),
       ]);
-      return { syntheses: syn.data ?? [], demandes: dem.data ?? [] };
+      return {
+        syntheses: syn.data ?? [],
+        demandes: (dem.data ?? []) as unknown as Demande[],
+        dernierAppel: ch.data?.dernier_appel ?? null,
+      };
     },
   });
   const lister = useServerFn(listerUtilisateurs);
@@ -107,7 +119,8 @@ function Admin() {
   const publiees = syntheses.filter((s) => s.statut === "envoyee" && !s.exemple);
   const derniere = publiees[0];
   const duJour = derniere?.date_veille === todayParis();
-  const enAttente = demandes.filter((d) => d.statut === "en_attente").length;
+  const enAttente = demandes.filter((d) => d.statut === "en_attente" || d.statut === "prise").length;
+  const n8n = etatN8n(data?.dernierAppel ?? null);
   const suspendus = utilisateurs?.filter((u) => u.suspendu).length ?? 0;
 
   const menu: { s: Section; texte: string; n?: number | undefined }[] = [
@@ -175,11 +188,12 @@ function Admin() {
                 utilisateurs={utilisateurs}
                 enAttente={enAttente}
                 suspendus={suspendus}
+                n8n={n8n}
               />
             )}
             {section === "syntheses" && <Journal syntheses={syntheses} />}
             {section === "abonnes" && <GestionAbonnes utilisateurs={utilisateurs} moi={userId} />}
-            {section === "demandes" && <Demandes demandes={demandes} userId={userId} />}
+            {section === "demandes" && <Demandes demandes={demandes} n8n={n8n} />}
           </div>
         </div>
       </div>
@@ -212,13 +226,14 @@ function Titre({ label, titre, children }: { label: string; titre: string; child
   );
 }
 
-function Apercu({ syntheses, derniere, duJour, utilisateurs, enAttente, suspendus }: {
+function Apercu({ syntheses, derniere, duJour, utilisateurs, enAttente, suspendus, n8n }: {
   syntheses: Synthese[];
   derniere: Synthese | undefined;
   duJour: boolean;
   utilisateurs: UtilisateurAdmin[] | undefined;
   enAttente: number;
   suspendus: number;
+  n8n: EtatN8n;
 }) {
   const lus = derniere?.nb_sources != null ? derniere.nb_sources - (derniere.nb_sources_echec ?? 0) : null;
   const recents = (utilisateurs ?? []).slice(0, 5);
@@ -241,7 +256,8 @@ function Apercu({ syntheses, derniere, duJour, utilisateurs, enAttente, suspendu
               { e: (derniere?.envoye_le ? "ok" : "neutre") as Etat, k: "Publication vers l'app", v: derniere?.envoye_le ? formatDateTime(derniere.envoye_le) : "Jamais" },
               { e: (derniere?.degrade ? "attente" : "ok") as Etat, k: "Résumés par le modèle", v: derniere?.degrade ? "Partiels (quota ou panne)" : "Complets" },
               { e: (derniere?.nb_sources_echec ? "attente" : "ok") as Etat, k: "Flux RSS", v: derniere?.nb_sources_echec ? `${derniere.nb_sources_echec} source en échec` : "Tous lus" },
-              { e: (enAttente ? "attente" : "neutre") as Etat, k: "Demandes de veille", v: enAttente ? `${enAttente} en attente` : "Aucune" },
+              { e: n8n.etat, k: "n8n (file des demandes)", v: n8n.texte },
+              { e: (enAttente ? "attente" : "neutre") as Etat, k: "Demandes de veille", v: enAttente ? `${enAttente} en cours` : "Aucune" },
             ].map((l) => (
               <div key={l.k} className="flex items-center justify-between gap-4 px-4 py-2.5">
                 <dt className="flex shrink-0 items-center gap-2.5 text-muted-foreground">
@@ -341,53 +357,84 @@ function Journal({ syntheses }: { syntheses: Synthese[] }) {
   );
 }
 
-type Demande = { id: string; created_at: string; statut: string };
+type Demande = { id: string; created_at: string; statut: string; pris_le: string | null; termine_le: string | null; detail: string | null };
+type EtatN8n = { etat: Etat; texte: string };
 
-function Demandes({ demandes, userId }: { demandes: Demande[]; userId: string }) {
+/** Signe de vie : n8n interroge l'app toutes les 2 minutes de 6 h à 22 h, quand le PC est allumé. */
+function etatN8n(dernier: string | null): EtatN8n {
+  if (!dernier) return { etat: "neutre", texte: "Jamais vu" };
+  const min = Math.round((Date.now() - Date.parse(dernier)) / 60000);
+  if (min <= 5) return { etat: "ok", texte: min <= 1 ? "En ligne" : `En ligne (vu il y a ${min} min)` };
+  return { etat: "alerte", texte: `Hors ligne depuis ${min < 120 ? `${min} min` : formatDateTime(dernier)}` };
+}
+
+function Demandes({ demandes, n8n }: { demandes: Demande[]; n8n: EtatN8n }) {
   const qc = useQueryClient();
+  const lancer = useServerFn(lancerVeille);
   const [msg, setMsg] = useState<{ ok: boolean; texte: string } | null>(null);
-  const enAttente = demandes.some((d) => d.statut === "en_attente");
-  const lancer = async () => {
-    const { error } = await supabase.from("demandes").insert({ demandeur: userId, statut: "en_attente" });
-    setMsg(error ? { ok: false, texte: "La demande n'a pas pu être enregistrée." } : { ok: true, texte: "Demande enregistrée." });
-    qc.invalidateQueries({ queryKey: ["admin"] });
+  const [occupe, setOccupe] = useState(false);
+  const enCours = demandes.find((d) => d.statut === "en_attente" || d.statut === "prise");
+  const go = async () => {
+    setOccupe(true);
+    setMsg(null);
+    try {
+      await lancer();
+      setMsg({ ok: true, texte: "Demande enregistrée : n8n la prendra en charge sous 2 minutes environ." });
+    } catch (e) {
+      setMsg({ ok: false, texte: e instanceof Error ? e.message : "Demande impossible." });
+    } finally {
+      setOccupe(false);
+      qc.invalidateQueries({ queryKey: ["admin"] });
+    }
   };
   return (
     <>
       <Titre label="Demandes" titre="Veilles à la demande">
-        <Button onClick={lancer} disabled={enAttente}>
-          {enAttente ? "Demande déjà en attente" : "Lancer une veille"}
+        <Button onClick={go} disabled={!!enCours || occupe}>
+          {enCours ? (enCours.statut === "prise" ? "Veille en cours..." : "Demande en attente...") : "Lancer une veille"}
         </Button>
       </Titre>
-      <div className="mb-5 flex gap-3 border border-border bg-accent-soft px-4 py-3 text-[13px] text-foreground">
-        <Point etat="attente" />
-        <p className="-mt-1 leading-relaxed">
-          <b className="font-semibold">Traitement non branché.</b> Une demande est enregistrée ici, mais la chaîne n8n ne lit pas encore cette file :
-          la veille tourne seule chaque matin. Le branchement est en attente de décision (D-WEB-7).
-        </p>
+      <div className="mb-5 grid gap-px border border-border bg-border text-[13px] sm:grid-cols-2">
+        <div className="flex items-start gap-3 bg-card px-4 py-3">
+          <span className="mt-1.5"><Point etat={n8n.etat} /></span>
+          <p className="leading-relaxed">
+            <b className="font-semibold text-foreground">n8n : {n8n.texte}.</b>{" "}
+            <span className="text-muted-foreground">La file est relevée toutes les 2 minutes, de 6 h à 22 h, quand le PC est allumé.</span>
+          </p>
+        </div>
+        <div className="bg-card px-4 py-3 leading-relaxed text-muted-foreground">
+          Une veille à la demande <b className="font-semibold text-foreground">ajoute</b> les articles parus depuis la dernière veille à la synthèse du jour,
+          sans nouvelle diffusion Discord. Limites : une à la fois, 15 min d'écart, 5 par jour.
+        </div>
       </div>
       {msg && <p role="status" className={`mb-3 text-sm ${msg.ok ? "text-foreground" : "text-destructive"}`}>{msg.texte}</p>}
       <div className="overflow-x-auto border border-border">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Créée le</TableHead>
+              <TableHead>Demandée le</TableHead>
               <TableHead>Statut</TableHead>
+              <TableHead>Prise à</TableHead>
+              <TableHead>Terminée à</TableHead>
+              <TableHead>Résultat</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {demandes.length === 0 && (
-              <TableRow><TableCell colSpan={2} className="text-muted-foreground">Aucune demande.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-muted-foreground">Aucune demande.</TableCell></TableRow>
             )}
             {demandes.map((d) => (
               <TableRow key={d.id}>
-                <TableCell>{formatDateTime(d.created_at)}</TableCell>
+                <TableCell className="whitespace-nowrap">{formatDateTime(d.created_at)}</TableCell>
                 <TableCell>
-                  <span className="inline-flex items-center gap-2">
+                  <span className="inline-flex items-center gap-2 whitespace-nowrap">
                     <Point etat={d.statut === "terminee" ? "ok" : d.statut === "echec" ? "alerte" : "attente"} />
                     {STATUTS[d.statut] ?? d.statut}
                   </span>
                 </TableCell>
+                <TableCell className="font-mono text-xs">{heure(d.pris_le) || "-"}</TableCell>
+                <TableCell className="font-mono text-xs">{heure(d.termine_le) || "-"}</TableCell>
+                <TableCell className={`text-[13px] ${d.statut === "echec" ? "text-primary" : "text-muted-foreground"}`}>{d.detail ?? "-"}</TableCell>
               </TableRow>
             ))}
           </TableBody>

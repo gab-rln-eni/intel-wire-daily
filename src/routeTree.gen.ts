@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as CompteRouteImport } from './routes/compte'
+import { Route as ApiPublicDemandeStatutRouteImport } from './routes/api/public/demande-statut'
+import { Route as ApiPublicDemandesSuivanteRouteImport } from './routes/api/public/demandes-suivante'
 import { Route as ApiPublicListerAbonnesRouteImport } from './routes/api/public/lister-abonnes'
 import { Route as ApiPublicPublierSyntheseRouteImport } from './routes/api/public/publier-synthese'
 
@@ -30,6 +32,17 @@ const CompteRoute = CompteRouteImport.update({
   path: '/compte',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicDemandeStatutRoute = ApiPublicDemandeStatutRouteImport.update({
+  id: '/api/public/demande-statut',
+  path: '/api/public/demande-statut',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicDemandesSuivanteRoute =
+  ApiPublicDemandesSuivanteRouteImport.update({
+    id: '/api/public/demandes-suivante',
+    path: '/api/public/demandes-suivante',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicListerAbonnesRoute = ApiPublicListerAbonnesRouteImport.update({
   id: '/api/public/lister-abonnes',
   path: '/api/public/lister-abonnes',
@@ -46,6 +59,8 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/compte': typeof CompteRoute
+  '/api/public/demande-statut': typeof ApiPublicDemandeStatutRoute
+  '/api/public/demandes-suivante': typeof ApiPublicDemandesSuivanteRoute
   '/api/public/lister-abonnes': typeof ApiPublicListerAbonnesRoute
   '/api/public/publier-synthese': typeof ApiPublicPublierSyntheseRoute
 }
@@ -53,6 +68,8 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/compte': typeof CompteRoute
+  '/api/public/demande-statut': typeof ApiPublicDemandeStatutRoute
+  '/api/public/demandes-suivante': typeof ApiPublicDemandesSuivanteRoute
   '/api/public/lister-abonnes': typeof ApiPublicListerAbonnesRoute
   '/api/public/publier-synthese': typeof ApiPublicPublierSyntheseRoute
 }
@@ -61,6 +78,8 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/compte': typeof CompteRoute
+  '/api/public/demande-statut': typeof ApiPublicDemandeStatutRoute
+  '/api/public/demandes-suivante': typeof ApiPublicDemandesSuivanteRoute
   '/api/public/lister-abonnes': typeof ApiPublicListerAbonnesRoute
   '/api/public/publier-synthese': typeof ApiPublicPublierSyntheseRoute
 }
@@ -70,6 +89,8 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/compte'
+    | '/api/public/demande-statut'
+    | '/api/public/demandes-suivante'
     | '/api/public/lister-abonnes'
     | '/api/public/publier-synthese'
   fileRoutesByTo: FileRoutesByTo
@@ -77,6 +98,8 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/compte'
+    | '/api/public/demande-statut'
+    | '/api/public/demandes-suivante'
     | '/api/public/lister-abonnes'
     | '/api/public/publier-synthese'
   id:
@@ -84,6 +107,8 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/compte'
+    | '/api/public/demande-statut'
+    | '/api/public/demandes-suivante'
     | '/api/public/lister-abonnes'
     | '/api/public/publier-synthese'
   fileRoutesById: FileRoutesById
@@ -92,6 +117,8 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   CompteRoute: typeof CompteRoute
+  ApiPublicDemandeStatutRoute: typeof ApiPublicDemandeStatutRoute
+  ApiPublicDemandesSuivanteRoute: typeof ApiPublicDemandesSuivanteRoute
   ApiPublicListerAbonnesRoute: typeof ApiPublicListerAbonnesRoute
   ApiPublicPublierSyntheseRoute: typeof ApiPublicPublierSyntheseRoute
 }
@@ -119,6 +146,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CompteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/demande-statut': {
+      id: '/api/public/demande-statut'
+      path: '/api/public/demande-statut'
+      fullPath: '/api/public/demande-statut'
+      preLoaderRoute: typeof ApiPublicDemandeStatutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/demandes-suivante': {
+      id: '/api/public/demandes-suivante'
+      path: '/api/public/demandes-suivante'
+      fullPath: '/api/public/demandes-suivante'
+      preLoaderRoute: typeof ApiPublicDemandesSuivanteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/lister-abonnes': {
       id: '/api/public/lister-abonnes'
       path: '/api/public/lister-abonnes'
@@ -140,6 +181,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   CompteRoute: CompteRoute,
+  ApiPublicDemandeStatutRoute: ApiPublicDemandeStatutRoute,
+  ApiPublicDemandesSuivanteRoute: ApiPublicDemandesSuivanteRoute,
   ApiPublicListerAbonnesRoute: ApiPublicListerAbonnesRoute,
   ApiPublicPublierSyntheseRoute: ApiPublicPublierSyntheseRoute,
 }

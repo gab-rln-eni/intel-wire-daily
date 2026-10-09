@@ -105,3 +105,19 @@ export const supprimerUtilisateur = createServerFn({ method: "POST" })
     if (error) throw new Error("Suppression impossible");
     return { ok: true };
   });
+
+/** Demande de veille à la demande : garde-fous appliqués en base (une à la fois, 15 min d'écart, 5 par jour). */
+export const lancerVeille = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const sb = await exigerAdmin(context.userId);
+    // Fonction ajoutée hors des types générés : appel non typé
+    const { data, error } = await (sb.rpc as unknown as (f: string, a: object) => Promise<{ data: unknown; error: unknown }>)(
+      "lancer_demande",
+      { p_user: context.userId },
+    );
+    if (error) throw new Error("Demande impossible");
+    const r = data as { ok: boolean; motif?: string };
+    if (!r.ok) throw new Error(r.motif ?? "Demande refusée");
+    return { ok: true };
+  });
