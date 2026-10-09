@@ -12,8 +12,9 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useNonLus } from "@/lib/lecture";
 
-const navBase = "relative px-2 py-1.5 text-sm transition-colors after:absolute after:inset-x-2 after:-bottom-[13px] after:h-0.5 after:transition-colors";
+const navBase = "relative px-2 py-1.5 text-sm transition-colors after:absolute after:inset-x-2 after:-bottom-[13px] after:h-0.5 after:transition-colors whitespace-nowrap";
 const navCls = `${navBase} text-muted-foreground hover:text-foreground after:bg-transparent hover:after:bg-border`;
 const activeCls = { className: `${navBase} font-semibold text-foreground after:bg-primary` };
 
@@ -61,6 +62,7 @@ function ThemeSwitch() {
 
 export function Header() {
   const { user, isStaff, openLogin } = useAuth();
+  const nonLus = useNonLus(user?.id);
   const navigate = useNavigate();
   const loc = useRouterState({ select: (s) => s.location });
   const vue = loc.pathname === "/compte" ? ((loc.search as { vue?: string }).vue ?? "synthese") : null;
@@ -81,14 +83,22 @@ export function Header() {
         {user ? (
           <nav
             aria-label="Navigation principale"
-            className="order-last -mx-2 flex flex-1 items-center gap-1 sm:order-none sm:mx-0"
+            className="order-last -mx-2 -mb-3 flex basis-full items-center gap-0.5 overflow-x-auto pb-3 sm:order-none sm:mx-0 sm:mb-0 sm:flex-1 sm:basis-auto sm:gap-1 sm:overflow-visible sm:pb-0"
           >
               <>
-                <Link to="/compte" search={{}} {...item("synthese")}>
+                <Link to="/compte" search={{}} {...item("synthese")} aria-label={nonLus ? `Synthèse, ${nonLus} non lu${nonLus > 1 ? "s" : ""}` : undefined}>
                   Synthèse
+                  {nonLus > 0 && (
+                    <span aria-hidden="true" className="ml-1.5 inline-block min-w-5 bg-primary px-1 text-center font-mono text-[0.65rem] leading-[1.15rem] text-primary-foreground tabular-nums">
+                      {nonLus}
+                    </span>
+                  )}
                 </Link>
                 <Link to="/compte" search={{ vue: "historique" }} {...item("historique")}>
                   Historique
+                </Link>
+                <Link to="/compte" search={{ vue: "articles" }} {...item("articles")}>
+                  Mes articles
                 </Link>
                 <Link to="/compte" search={{ vue: "donnees" }} {...item("donnees")}>
                   Mes données
@@ -164,9 +174,10 @@ const DOCS: Record<Exclude<Doc, null>, { title: string; body: ReactNode }> = {
     title: "Confidentialité",
     body: (
       <>
-        <p><strong>Données traitées :</strong> adresse email, identité du compte Google (si vous l'utilisez pour vous connecter), canal de réception choisi, rubriques suivies. Si vous choisissez Discord, vous rejoignez le salon public #synthese-du-jour : Discord traite alors votre compte selon ses propres conditions.</p>
-        <p><strong>Finalité :</strong> envoi et consultation de la synthèse de veille.</p>
-        <p><strong>Conservation :</strong> compte et préférences jusqu'à la suppression du compte (effacement immédiat) ; date de votre dernier choix de réception gardée comme preuve de consentement ; demandes de veille internes 90 jours ; journal des actions de l'équipe d'administration 12 mois.</p>
+        <p><strong>Données traitées :</strong> adresse email, identité du compte Google (si vous l'utilisez pour vous connecter), canal de réception choisi, rubriques suivies, articles marqués comme lus et articles sauvegardés (avec l'état de leur lien). Si vous choisissez Discord, vous rejoignez le salon public #synthese-du-jour : Discord traite alors votre compte selon ses propres conditions.</p>
+        <p><strong>Finalité :</strong> envoi et consultation de la synthèse de veille, suivi de votre lecture et de vos articles sauvegardés.</p>
+        <p><strong>Conservation :</strong> compte et préférences jusqu'à la suppression du compte (effacement immédiat) ; date de votre dernier choix de réception gardée comme preuve de consentement ; demandes de veille internes 90 jours ; articles marqués comme lus 90 jours ; articles sauvegardés jusqu'à leur retrait ou la suppression du compte ; journal des actions de l'équipe d'administration 12 mois.</p>
+        <p><strong>Vérification des liens :</strong> pour signaler un lien rompu, l'app interroge une fois par jour au plus l'adresse de chaque article sauvegardé ; seule l'adresse publique de l'article est appelée, sans aucune donnée vous concernant.</p>
         <p><strong>Vos droits :</strong> accès, portabilité, rectification et suppression. Depuis Mon compte, Mes données : téléchargez une copie de vos données ou supprimez votre compte à tout moment.</p>
       </>
     ),
@@ -205,6 +216,7 @@ export function Footer() {
             <>
               <Link to="/compte" search={{}} className={lien}>Synthèse du jour</Link>
               <Link to="/compte" search={{ vue: "historique" }} className={lien}>Historique</Link>
+              <Link to="/compte" search={{ vue: "articles" }} className={lien}>Mes articles</Link>
               <Link to="/compte" search={{ vue: "donnees" }} className={lien}>Mes données</Link>
             </>
           ) : (

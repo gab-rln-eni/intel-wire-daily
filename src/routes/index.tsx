@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { SujetCard } from "@/components/SujetCard";
 import { useAuth } from "@/lib/auth";
 import { formatDate, rubriqueIndex, todayParis, type Sujet } from "@/lib/rubriques";
 import { Apparition, Compteur } from "@/components/Anime";
@@ -166,17 +165,27 @@ function Index() {
                 />
               </div>
             )}
-            <div key={onglet ?? "une"} className="grille-filets md:grid-cols-3" aria-live="polite">
+            {/* Même présentation que l'espace abonné (liste éditoriale), sans lien : réservé aux abonnés */}
+            <ul key={onglet ?? "une"} className="max-w-[48rem] divide-y divide-border border-y border-border" aria-live="polite">
               {cartes.map((s, i) => (
-                <div
+                <li
                   key={`${s.rubrique}-${s.ordre}`}
                   style={{ animationDelay: `${i * 80}ms` }}
-                  className="animate-in fade-in-0 slide-in-from-bottom-2 fill-both duration-500 motion-reduce:animate-none"
+                  className="animate-in fade-in-0 slide-in-from-bottom-2 fill-both py-4 duration-500 motion-reduce:animate-none"
                 >
-                  <SujetCard sujet={s} exemple={data.exemple} />
-                </div>
+                  <h3 className="text-[15.5px] font-semibold leading-snug text-foreground">{s.titre}</h3>
+                  <p className="mt-1.5 text-[14px] leading-relaxed text-muted-foreground">{s.redige && s.resume ? s.resume : s.extrait}</p>
+                  <p className="mt-2 flex flex-wrap items-center gap-x-2 font-mono text-[0.7rem] text-ink3">
+                    <span>{s.source} | {s.rubrique}</span>
+                    {data.exemple && <span className="border border-border px-1 uppercase tracking-wide">exemple</span>}
+                    <span aria-hidden="true">|</span>
+                    <button type="button" onClick={() => openLogin("signup")} className="link-accent">
+                      Lien réservé aux abonnés
+                    </button>
+                  </p>
+                </li>
               ))}
-            </div>
+            </ul>
           </>
         )}
         <p className="mt-4 text-xs text-muted-foreground">
