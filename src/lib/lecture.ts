@@ -125,6 +125,12 @@ export function useActionsLecture(userId: string) {
       await t("lectures").delete().eq("user_id", userId).in("lien", [lien]);
       relire();
     },
+    marquerNonLus: async (liens: string[]) => {
+      if (!liens.length) return;
+      majLus((s) => liens.forEach((l) => s.delete(l)));
+      await t("lectures").delete().eq("user_id", userId).in("lien", liens);
+      relire();
+    },
     basculerFavori: async (lien: string, estFavori: boolean) => {
       if (estFavori) await t("favoris").delete().eq("user_id", userId).in("lien", [lien]);
       else await sauver({ data: { lien } });

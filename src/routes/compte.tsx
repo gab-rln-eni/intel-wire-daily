@@ -283,6 +283,13 @@ function Synthese({ userId, synthese, isLatest, onRetour }: { userId: string; sy
                 <summary className="cursor-pointer select-none py-2 text-xs text-muted-foreground hover:text-foreground">
                   Déjà lus ({dejaLus.length})
                 </summary>
+                {dejaLus.length > 0 && (
+                  <div className="flex justify-end pb-2">
+                    <button type="button" className="link-accent text-xs font-medium" onClick={() => garde(() => actions.marquerNonLus(dejaLus.map((s) => s.lien)))}>
+                      Tout marquer comme non lu
+                    </button>
+                  </div>
+                )}
                 <ul className="divide-y divide-border border-y border-border">{dejaLus.map(ligne)}</ul>
               </details>
             )}
@@ -366,7 +373,7 @@ function MesArticles({ userId }: { userId: string }) {
     <section aria-labelledby="articles-titre" className="space-y-6">
       <EnTete id="articles-titre" label="Mon compte" titre="Mes articles">
         <p className="mt-2 text-sm text-muted-foreground">
-          Les sujets marqués d'une étoile. Leurs liens sont vérifiés une fois par jour : un lien rompu est signalé.
+          Les sujets marqués d'une étoile, 30 au plus ({favoris.length} / 30). Leurs liens sont vérifiés une fois par jour : un lien rompu est signalé.
         </p>
       </EnTete>
       {favoris.length > 0 && (
@@ -486,7 +493,9 @@ function Preferences({ userId }: { userId: string }) {
           ))}
           </div>
           {msgR && <p role="status" className={`text-sm ${msgR.ok ? "text-foreground" : "text-destructive"}`}>{msgR.text}</p>}
-          <Button type="submit" size="sm">Enregistrer</Button>
+          <div className="flex justify-end">
+            <Button type="submit" size="sm">Enregistrer</Button>
+          </div>
         </form>
       </LigneReglage>
 
@@ -516,7 +525,9 @@ function Preferences({ userId }: { userId: string }) {
             </div>
           )}
           {msg && <p role="status" className={`text-sm ${msg.ok ? "text-foreground" : "text-destructive"}`}>{msg.text}</p>}
-          <Button type="submit" size="sm">Enregistrer</Button>
+          <div className="flex justify-end">
+            <Button type="submit" size="sm">Enregistrer</Button>
+          </div>
         </form>
       </LigneReglage>
     </>
@@ -569,13 +580,17 @@ function MesDonnees() {
   return (
     <>
     <LigneReglage id="export-titre" titre="Copie de mes données" aide="Compte, préférences, articles lus et sauvegardés, dans un fichier JSON.">
-      <Button variant="outline" size="sm" onClick={exporter}>Télécharger mes données</Button>
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={exporter}>Télécharger mes données</Button>
+      </div>
     </LigneReglage>
     <LigneReglage id="suppression-titre" titre="Supprimer mon compte" aide="Efface définitivement votre compte, vos préférences et vos articles.">
       <AlertDialog>
+        <div className="flex justify-end">
         <AlertDialogTrigger asChild>
           <Button variant="destructive" size="sm">Supprimer mon compte</Button>
         </AlertDialogTrigger>
+        </div>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Supprimer votre compte ?</AlertDialogTitle>
@@ -599,7 +614,7 @@ function MesDonnees() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      {err && <p role="alert" className="mt-2 text-sm text-destructive">{err}</p>}
+      {err && <p role="alert" className="mt-2 text-right text-sm text-destructive">{err}</p>}
     </LigneReglage>
     </>
   );

@@ -5,7 +5,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 // (titre, résumé, source, lien), puis le lien est vérifié par l'app au plus une fois par jour, à l'ouverture de « Mes articles ».
 // Tables ajoutées hors des types générés : accès non typé, toujours lié à son client (PNPR-WEB-3).
 
-const MAX_FAVORIS = 500;
+const MAX_FAVORIS = 30; // plafond par abonné (consigne G_R)
 const DELAI_VERIF_MS = 24 * 3600 * 1000;
 const PAR_PASSAGE = 15;
 
@@ -31,7 +31,7 @@ const lienValide = (d: { lien: string }) => {
   return { lien };
 };
 
-/** Sauvegarder un article : seulement un sujet publié (copie côté serveur), sans doublon, 500 au plus par compte. */
+/** Sauvegarder un article : seulement un sujet publié (copie côté serveur), sans doublon, 30 au plus par compte. */
 export const sauverFavori = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(lienValide)
@@ -44,7 +44,7 @@ export const sauverFavori = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!s) throw new Error("Article introuvable dans les synthèses publiées");
     const { count } = (await table(sb, "favoris").select("id", { count: "exact", head: true }).eq("user_id", context.userId)) as { count?: number | null };
-    if ((count ?? 0) >= MAX_FAVORIS) throw new Error(`Limite de ${MAX_FAVORIS} articles sauvegardés atteinte`);
+    if ((count ?? 0) >= MAX_FAVORIS) throw new Error(`Limite de ${MAX_FAVORIS} articles sauvegardés atteinte : retirez-en un dans Mes articles`);
     const synth = s["syntheses"] as { date_veille?: string } | null;
     const { error } = await table(sb, "favoris").insert({
       user_id: context.userId,
