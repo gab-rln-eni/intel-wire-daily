@@ -463,7 +463,7 @@ BEGIN
   EXCEPTION WHEN others THEN
     UPDATE parametres SET valeur = jsonb_build_object('le', now(), 'erreur', left(SQLERRM, 200), 'par', 'automatique') WHERE cle = 'maintenance';
   END;
-  UPDATE demandes SET statut = 'echec', termine_le = now(), detail = 'Expirée : n8n n''a pas pris la demande en 2 h (PC éteint ?)' WHERE statut = 'en_attente' AND created_at < now() - interval '2 hours';
+  UPDATE demandes SET statut = 'echec', termine_le = now(), detail = 'Expirée : n8n n''a pas pris la demande en 2 h (serveur n8n injoignable ?)' WHERE statut = 'en_attente' AND created_at < now() - interval '2 hours';
   UPDATE demandes SET statut = 'echec', termine_le = now(), detail = 'Délai dépassé : aucune fin signalée en 30 min' WHERE statut = 'prise' AND pris_le < now() - interval '30 minutes';
   IF EXISTS (SELECT 1 FROM demandes WHERE statut = 'prise') THEN RETURN jsonb_build_object('demande', null, 'motif', 'une demande est déjà en cours'); END IF;
   UPDATE demandes SET statut = 'prise', pris_le = now(), sujets_avant = (SELECT nb_sujets FROM syntheses WHERE date_veille = (now() AT TIME ZONE 'Europe/Paris')::date)

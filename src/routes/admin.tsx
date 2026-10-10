@@ -629,7 +629,7 @@ function Maintenance() {
         await nettoyer({ data: { salon: dlg.salon, portee: dlg.portee } });
         setMsg({
           ok: true,
-          texte: `Nettoyage de #${dlg.salon} transmis : n8n l'applique sous 2 minutes environ (PC allumé).`,
+          texte: `Nettoyage de #${dlg.salon} transmis : n8n l'applique sous 2 minutes environ (serveur n8n en marche).`,
         });
       }
       setDlg(null);
@@ -867,7 +867,7 @@ type Demande = {
 };
 type EtatN8n = { etat: Etat; texte: string };
 
-/** Signe de vie : n8n interroge l'app toutes les 2 minutes de 6 h à 22 h, quand le PC est allumé. */
+/** Signe de vie : n8n interroge l'app toutes les 2 minutes de 6 h à 22 h, quand le serveur n8n est en marche. */
 function etatN8n(dernier: string | null): EtatN8n {
   if (!dernier) return { etat: "neutre", texte: "Jamais vu" };
   const min = Math.round((Date.now() - Date.parse(dernier)) / 60000);
@@ -920,7 +920,7 @@ function Demandes({ demandes, n8n }: { demandes: Demande[]; n8n: EtatN8n }) {
           <p className="leading-relaxed">
             <b className="font-semibold text-foreground">n8n : {n8n.texte}.</b>{" "}
             <span className="text-muted-foreground">
-              La file est relevée toutes les 2 minutes, de 6 h à 22 h, quand le PC est allumé.
+              La file est relevée toutes les 2 minutes, de 6 h à 22 h, quand le serveur n8n est en marche.
             </span>
           </p>
         </div>
