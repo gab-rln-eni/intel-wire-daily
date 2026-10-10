@@ -6,7 +6,7 @@ import type { Sujet } from "@/lib/rubriques";
 
 // Lus et favoris de l'abonné (A-2 à A-5, A-7) : en base, liés au compte, clé = URL de l'article
 // (les sujets sont réécrits à chaque publication, leur identifiant change, l'URL non).
-// Tables ajoutées hors des types générés : accès non typé, toujours lié à son client (PNPR-WEB-3).
+// Types de la base régénérés (MNT-02) : accès typé, appels toujours faits sur le client (PNPR-WEB-3).
 
 export type SujetLu = Sujet & { id: string; publie_le?: string | null };
 export type Favori = {
@@ -21,18 +21,6 @@ export type Favori = {
   lien_etat: "inconnu" | "ok" | "rompu" | "incertain";
   verifie_le: string | null;
 };
-
-type Lecture = {
-  select: (c: string) => {
-    in: (k: string, v: string[]) => Promise<{ data: { lien: string }[] | null }>;
-    order: (k: string, o: object) => Promise<{ data: unknown[] | null }>;
-  };
-  upsert: (v: object[], o: object) => Promise<{ error: unknown }>;
-  delete: () => {
-    eq: (k: string, v: string) => { in: (k: string, v: string[]) => Promise<{ error: unknown }> };
-  };
-};
-const t = (nom: string) => (supabase.from as unknown as (n: string) => Lecture).bind(supabase)(nom);
 
 /** Dernière synthèse publiée et ses sujets (mêmes clés de cache que la page Synthèse). */
 export function useSyntheses(actif = true) {
@@ -75,7 +63,7 @@ export function useLus(userId: string | undefined, liens: string[]) {
     queryKey: ["lus", userId, cle],
     enabled: !!userId && liens.length > 0,
     queryFn: async () => {
-      const { data } = await t("lectures").select("lien").in("lien", liens);
+      const { data } = await supabase.from("lectures").select("lien").in("lien", liens);
       return new Set((data ?? []).map((x) => x.lien));
     },
   });
@@ -87,7 +75,8 @@ export function useFavoris(userId: string | undefined) {
     queryKey: ["favoris", userId],
     enabled: !!userId,
     queryFn: async () => {
-      const { data } = await t("favoris")
+      const { data } = await supabase
+        .from("favoris")
         .select(
           "id, lien, titre, resume, source, rubrique, date_veille, sauve_le, lien_etat, verifie_le",
         )
@@ -139,7 +128,7 @@ export function useActionsLecture(userId: string) {
     marquerLus: async (liens: string[]) => {
       if (!liens.length) return;
       majLus((s) => liens.forEach((l) => s.add(l)));
-      await t("lectures").upsert(
+      await supabase.from("lectures").upsert(
         liens.map((lien) => ({ user_id: userId, lien })),
         { onConflict: "user_id,lien", ignoreDuplicates: true },
       );
@@ -147,17 +136,18 @@ export function useActionsLecture(userId: string) {
     },
     marquerNonLu: async (lien: string) => {
       majLus((s) => s.delete(lien));
-      await t("lectures").delete().eq("user_id", userId).in("lien", [lien]);
+      await supabase.from("lectures").delete().eq("user_id", userId).in("lien", [lien]);
       relire();
     },
     marquerNonLus: async (liens: string[]) => {
       if (!liens.length) return;
       majLus((s) => liens.forEach((l) => s.delete(l)));
-      await t("lectures").delete().eq("user_id", userId).in("lien", liens);
+      await supabase.from("lectures").delete().eq("user_id", userId).in("lien", liens);
       relire();
     },
     basculerFavori: async (lien: string, estFavori: boolean) => {
-      if (estFavori) await t("favoris").delete().eq("user_id", userId).in("lien", [lien]);
+      if (estFavori)
+        await supabase.from("favoris").delete().eq("user_id", userId).in("lien", [lien]);
       else await sauver({ data: { lien } });
       await qc.invalidateQueries({ queryKey: ["favoris", userId] });
     },

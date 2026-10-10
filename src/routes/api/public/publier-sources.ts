@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { json, rpcLiee, verifierSecret } from "@/lib/publication.server";
+import { json, verifierSecret } from "@/lib/publication.server";
 
 const txt = (v: unknown, max: number) => (v == null ? "" : String(v).trim().slice(0, max));
 const ent = (v: unknown) =>
@@ -45,7 +45,7 @@ export const Route = createFileRoute("/api/public/publier-sources")({
         });
         if (sources.some((s) => !s.nom)) return json({ error: "source sans nom" }, 400);
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const { data, error } = await rpcLiee(supabaseAdmin)("publier_sources", { p: sources });
+        const { data, error } = await supabaseAdmin.rpc("publier_sources", { p: sources });
         if (error) return json({ error: "Écriture impossible" }, 500);
         return json(data);
       },

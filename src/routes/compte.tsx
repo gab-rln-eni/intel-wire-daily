@@ -862,20 +862,14 @@ function MesDonnees() {
     try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error();
-      // Tables ajoutées hors des types générés : accès non typé, lié à son client
-      const lire = (
-        supabase.from as unknown as (t: string) => {
-          select: (c: string) => Promise<{ data: unknown[] | null }>;
-        }
-      ).bind(supabase);
       const [{ data: profil }, { data: roles }, { data: lectures }, { data: favoris }] =
         await Promise.all([
           supabase.from("profiles").select("*").eq("id", u.user.id).maybeSingle(),
           supabase.from("user_roles").select("role").eq("user_id", u.user.id),
-          lire("lectures").select("lien, lu_le"),
-          lire("favoris").select(
-            "lien, titre, source, rubrique, date_veille, sauve_le, lien_etat, verifie_le",
-          ),
+          supabase.from("lectures").select("lien, lu_le"),
+          supabase
+            .from("favoris")
+            .select("lien, titre, source, rubrique, date_veille, sauve_le, lien_etat, verifie_le"),
         ]);
       const contenu = {
         export_le: new Date().toISOString(),

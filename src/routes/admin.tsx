@@ -136,39 +136,16 @@ function Admin() {
       const [syn, dem, ch, mt] = await Promise.all([
         supabase.from("syntheses").select("*").order("date_veille", { ascending: false }),
         supabase.from("demandes").select("*").order("created_at", { ascending: false }).limit(30),
-        // Table ajoutée hors des types générés (signe de vie de n8n)
-        (
-          supabase.from as unknown as (t: string) => {
-            select: (c: string) => {
-              maybeSingle: () => Promise<{ data: { dernier_appel: string | null } | null }>;
-            };
-          }
-        )
-          .bind(supabase)("chaine_etat")
-          .select("dernier_appel")
-          .maybeSingle(),
-        (
-          supabase.from as unknown as (t: string) => {
-            select: (c: string) => {
-              eq: (
-                k: string,
-                v: string,
-              ) => {
-                maybeSingle: () => Promise<{
-                  data: { valeur: unknown; maj_le: string; maj_par: string | null } | null;
-                }>;
-              };
-            };
-          }
-        )
-          .bind(supabase)("parametres")
+        supabase.from("chaine_etat").select("dernier_appel").maybeSingle(),
+        supabase
+          .from("parametres")
           .select("valeur, maj_le, maj_par")
           .eq("cle", "mode_test")
           .maybeSingle(),
       ]);
       return {
         syntheses: syn.data ?? [],
-        demandes: (dem.data ?? []) as unknown as Demande[],
+        demandes: (dem.data ?? []) as Demande[],
         dernierAppel: ch.data?.dernier_appel ?? null,
         modeTest: mt.data?.valeur === true,
         modeTestMaj: mt.data
@@ -617,24 +594,10 @@ function Maintenance() {
         ? 10000
         : 60000,
     queryFn: async () => {
-      // Tables ajoutées hors des types générés : accès non typé, lié à son client
-      const lire = (
-        supabase.from as unknown as (t: string) => {
-          select: (c: string) => {
-            eq: (
-              k: string,
-              v: string,
-            ) => { maybeSingle: () => Promise<{ data: { valeur: unknown } | null }> };
-            order: (
-              k: string,
-              o: object,
-            ) => { limit: (n: number) => Promise<{ data: unknown[] | null }> };
-          };
-        }
-      ).bind(supabase);
       const [p, n] = await Promise.all([
-        lire("parametres").select("valeur").eq("cle", "maintenance").maybeSingle(),
-        lire("nettoyages_salons")
+        supabase.from("parametres").select("valeur").eq("cle", "maintenance").maybeSingle(),
+        supabase
+          .from("nettoyages_salons")
           .select("id, cree_le, salon, portee, mode, statut, supprimes, detail, termine_le")
           .order("cree_le", { ascending: false })
           .limit(4),
@@ -1039,18 +1002,8 @@ function JournalAudit({ estAdmin }: { estAdmin: boolean }) {
   const { data, isLoading } = useQuery({
     queryKey: ["admin-journal"],
     queryFn: async () => {
-      // Table ajoutée hors des types générés : accès non typé, lié à son client
-      const lire = (
-        supabase.from as unknown as (t: string) => {
-          select: (c: string) => {
-            order: (
-              k: string,
-              o: object,
-            ) => { limit: (n: number) => Promise<{ data: LigneJournal[] | null }> };
-          };
-        }
-      ).bind(supabase);
-      const { data } = await lire("admin_journal")
+      const { data } = await supabase
+        .from("admin_journal")
         .select("id, cree_le, auteur_email, role, action, cible, detail, resultat")
         .order("cree_le", { ascending: false })
         .limit(200);
@@ -1448,33 +1401,20 @@ type ActionSrc = {
 type DonneesSources = { sources: SourceMiroir[]; actions: ActionSrc[]; majLe: string | null };
 
 async function lireSources(): Promise<DonneesSources> {
-  // Tables ajoutées hors des types générés : accès non typé, lié à son client
-  const lire = (
-    supabase.from as unknown as (t: string) => {
-      select: (c: string) => {
-        order: (
-          k: string,
-          o: object,
-        ) => { limit: (n: number) => Promise<{ data: unknown[] | null }> };
-        eq: (
-          k: string,
-          v: string,
-        ) => { maybeSingle: () => Promise<{ data: { valeur: unknown } | null }> };
-      };
-    }
-  ).bind(supabase);
   const [s, a, m] = await Promise.all([
-    lire("sources_miroir")
+    supabase
+      .from("sources_miroir")
       .select(
         "nom, url, categorie, priorite, active, statut_sante, jours_echec, nb_articles, sante_le",
       )
       .order("nom", { ascending: true })
       .limit(500),
-    lire("actions_sources")
+    supabase
+      .from("actions_sources")
       .select("id, cree_le, auteur_email, role, action, nom, url, motif, statut, detail, traite_le")
       .order("cree_le", { ascending: false })
       .limit(20),
-    lire("parametres").select("valeur").eq("cle", "sources_maj").maybeSingle(),
+    supabase.from("parametres").select("valeur").eq("cle", "sources_maj").maybeSingle(),
   ]);
   return {
     sources: (s.data ?? []) as SourceMiroir[],

@@ -15,22 +15,6 @@ async function clientAdmin() {
   return supabaseAdmin;
 }
 
-// Tables et fonctions ajoutées hors des types générés : accès non typé, toujours lié à son client (sinon « this » est perdu)
-interface Requete extends PromiseLike<{ data: unknown; error: unknown }> {
-  insert(v: object): Requete;
-  update(v: object): Requete;
-  delete(): Requete;
-  select(c: string): Requete;
-  eq(k: string, v: unknown): Requete;
-  ilike(k: string, v: string): Requete;
-  maybeSingle(): PromiseLike<{ data: Record<string, unknown> | null; error: unknown }>;
-}
-const table = (sb: SB, nom: string) => (sb.from as unknown as (n: string) => Requete).bind(sb)(nom);
-const rpc = (sb: SB, nom: string, args?: object) =>
-  (sb.rpc as unknown as (f: string, a?: object) => Promise<{ data: unknown; error: unknown }>).bind(
-    sb,
-  )(nom, args);
-
 async function roleDe(sb: SB, userId: string): Promise<Role | null> {
   const { data } = await sb.from("user_roles").select("role").eq("user_id", userId);
   const roles = (data ?? []).map((r) => String(r.role));
@@ -60,7 +44,7 @@ async function journal(
   detail = "",
   resultat = "ok",
 ) {
-  await table(q.sb, "admin_journal").insert({
+  await q.sb.from("admin_journal").insert({
     auteur,
     auteur_email: q.email,
     role: q.role,
@@ -210,9 +194,9 @@ export const definirVeilleur = createServerFn({ method: "POST" })
       data.veilleur ? "Nommer veilleur" : "Retirer veilleur",
       async (sb) => {
         if (!data.veilleur)
-          return table(sb, "user_roles").delete().eq("user_id", data.id).eq("role", "veilleur");
+          return sb.from("user_roles").delete().eq("user_id", data.id).eq("role", "veilleur");
         if ((await roleDe(sb, data.id)) === "veilleur") return { error: null }; // déjà veilleur : rien à faire
-        return table(sb, "user_roles").insert({ user_id: data.id, role: "veilleur" });
+        return sb.from("user_roles").insert({ user_id: data.id, role: "veilleur" });
       },
     ),
   );
@@ -222,7 +206,7 @@ export const lancerVeille = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const q = await exiger(context.userId, ["admin", "veilleur"], "Lancer une veille");
-    const { data, error } = await rpc(q.sb, "lancer_demande", { p_user: context.userId });
+    const { data, error } = await q.sb.rpc("lancer_demande", { p_user: context.userId });
     const r = (data ?? {}) as { ok?: boolean; motif?: string };
     if (error || !r.ok) {
       await journal(
@@ -250,13 +234,15 @@ export const basculerModeTest = createServerFn({ method: "POST" })
       data.actif ? "Activer le mode test" : "Désactiver le mode test",
     );
     // Déjà dans l'état demandé (double clic, deux onglets) : rien à écrire, rien à journaliser
-    const { data: actuel } = await table(q.sb, "parametres")
+    const { data: actuel } = await q.sb
+      .from("parametres")
       .select("valeur")
       .eq("cle", "mode_test")
       .maybeSingle();
     if (actuel && (actuel["valeur"] === true) === data.actif)
       return { ok: true, actif: data.actif, inchange: true };
-    const { error } = await table(q.sb, "parametres")
+    const { error } = await q.sb
+      .from("parametres")
       .update({ valeur: data.actif, maj_le: new Date().toISOString(), maj_par: q.email })
       .eq("cle", "mode_test");
     if (error) throw new Error("Bascule impossible");
@@ -311,7 +297,8 @@ async function controler(sb: SB, a: Required<ProposeSource>) {
   if (!a.action) return "action invalide";
   if (!a.nom) return "nom obligatoire";
   if (!a.motif) return "motif obligatoire";
-  const { data: deja } = await table(sb, "actions_sources")
+  const { data: deja } = await sb
+    .from("actions_sources")
     .select("id")
     .eq("nom", a.nom)
     .eq("statut", "a_valider")
@@ -319,19 +306,22 @@ async function controler(sb: SB, a: Required<ProposeSource>) {
   if (deja) return "une action sur cette source attend déjà la validation";
   if (a.action === "Ajouter") {
     if (!/^https?:\/\/\S+$/i.test(a.url)) return "URL invalide (http ou https, sans espace)";
-    const { data: n } = await table(sb, "sources_miroir")
+    const { data: n } = await sb
+      .from("sources_miroir")
       .select("nom")
       .ilike("nom", a.nom)
       .maybeSingle();
     if (n) return `source déjà présente : ${a.nom}`;
-    const { data: u } = await table(sb, "sources_miroir")
+    const { data: u } = await sb
+      .from("sources_miroir")
       .select("nom")
       .ilike("url", a.url)
       .maybeSingle();
     if (u) return `URL déjà présente (source ${String(u["nom"])})`;
     return "";
   }
-  const { data: s } = await table(sb, "sources_miroir")
+  const { data: s } = await sb
+    .from("sources_miroir")
     .select("nom, active")
     .eq("nom", a.nom)
     .maybeSingle();
@@ -366,7 +356,7 @@ export const proposerActionSource = createServerFn({ method: "POST" })
       statut: aValider ? "a_valider" : "en_attente",
       valide_par: aValider ? null : q.email,
     };
-    const { error } = await table(q.sb, "actions_sources").insert(ligne);
+    const { error } = await q.sb.from("actions_sources").insert(ligne);
     if (error) throw new Error("Enregistrement impossible");
     await journal(
       q,
@@ -393,7 +383,8 @@ export const validerActionSource = createServerFn({ method: "POST" })
       throw new Error(motif);
     };
     if (!/^[0-9a-f-]{36}$/i.test(data.id)) await refuser("Identifiant invalide", "");
-    const { data: a } = await table(q.sb, "actions_sources")
+    const { data: a } = await q.sb
+      .from("actions_sources")
       .select("nom, action, statut")
       .eq("id", data.id)
       .maybeSingle();
@@ -402,7 +393,8 @@ export const validerActionSource = createServerFn({ method: "POST" })
         "Action introuvable ou déjà traitée",
         a ? `${String(a["action"])} ${String(a["nom"])}` : data.id,
       );
-    const { error } = await table(q.sb, "actions_sources")
+    const { error } = await q.sb
+      .from("actions_sources")
       .update(
         data.accepter
           ? { statut: "en_attente", valide_par: q.email }
@@ -427,7 +419,7 @@ export const lancerMaintenance = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const q = await exiger(context.userId, ["admin"], "Maintenance des données");
-    const { data, error } = await rpc(q.sb, "maintenance_executer", {
+    const { data, error } = await q.sb.rpc("maintenance_executer", {
       p_force: true,
       p_auteur: context.userId,
       p_email: q.email,
@@ -447,7 +439,7 @@ export const purgerJournal = createServerFn({ method: "POST" })
     const q = await exiger(context.userId, ["admin"], "Purger le journal");
     if (![90, 180, 365].includes(data.jours))
       throw new Error("Durée invalide (90, 180 ou 365 jours)");
-    const { data: r, error } = await rpc(q.sb, "purger_journal", {
+    const { data: r, error } = await q.sb.rpc("purger_journal", {
       p_jours: data.jours,
       p_auteur: context.userId,
       p_email: q.email,
@@ -469,7 +461,7 @@ export const demanderNettoyage = createServerFn({ method: "POST" })
     const q = await exiger(context.userId, ["admin"], intitule);
     if (!data.salon || !data.portee) throw new Error("Salon ou portée invalide");
     const cible = `#${data.salon} (${data.portee === "tout" ? "tous les messages" : "plus de 30 jours"})`;
-    const { error } = await table(q.sb, "nettoyages_salons").insert({
+    const { error } = await q.sb.from("nettoyages_salons").insert({
       salon: data.salon,
       portee: data.portee,
       mode: "manuel",

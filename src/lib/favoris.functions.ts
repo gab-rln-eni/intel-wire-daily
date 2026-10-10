@@ -3,28 +3,17 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 // Articles sauvegardés (A-5, A-6) : l'abonné ne fournit jamais d'URL libre. Le favori est copié depuis un sujet publié
 // (titre, résumé, source, lien), puis le lien est vérifié par l'app au plus une fois par jour, à l'ouverture de « Mes articles ».
-// Tables ajoutées hors des types générés : accès non typé, toujours lié à son client (PNPR-WEB-3).
+// Types de la base régénérés (MNT-02) : accès typé, appels toujours faits sur le client (PNPR-WEB-3).
 
 const MAX_FAVORIS = 30; // plafond par abonné (consigne G_R)
 const DELAI_VERIF_MS = 24 * 3600 * 1000;
 const PAR_PASSAGE = 15;
 
 type Admin = Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"];
-interface Requete extends PromiseLike<{ data: unknown; error: unknown; count?: number | null }> {
-  select(c: string, o?: object): Requete;
-  insert(v: object): Requete;
-  update(v: object): Requete;
-  eq(k: string, v: unknown): Requete;
-  order(k: string, o: object): Requete;
-  limit(n: number): Requete;
-  maybeSingle(): PromiseLike<{ data: Record<string, unknown> | null; error: unknown }>;
-}
 async function admin() {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   return supabaseAdmin;
 }
-const table = (sb: Admin, nom: string) =>
-  (sb.from as unknown as (n: string) => Requete).bind(sb)(nom);
 
 const lienValide = (d: { lien: string }) => {
   const lien = String(d?.lien ?? "").trim();
@@ -38,13 +27,15 @@ export const sauverFavori = createServerFn({ method: "POST" })
   .validator(lienValide)
   .handler(async ({ context, data }) => {
     const sb = await admin();
-    const { data: s } = await table(sb, "sujets")
+    const { data: s } = await sb
+      .from("sujets")
       .select("titre, resume, extrait, redige, source, rubrique, lien, syntheses(date_veille)")
       .eq("lien", data.lien)
       .limit(1)
       .maybeSingle();
     if (!s) throw new Error("Article introuvable dans les synthèses publiées");
-    const { count } = (await table(sb, "favoris")
+    const { count } = (await sb
+      .from("favoris")
       .select("id", { count: "exact", head: true })
       .eq("user_id", context.userId)) as { count?: number | null };
     if ((count ?? 0) >= MAX_FAVORIS)
@@ -52,7 +43,7 @@ export const sauverFavori = createServerFn({ method: "POST" })
         `Limite de ${MAX_FAVORIS} articles sauvegardés atteinte : retirez-en un dans Mes articles`,
       );
     const synth = s["syntheses"] as { date_veille?: string } | null;
-    const { error } = await table(sb, "favoris").insert({
+    const { error } = await sb.from("favoris").insert({
       user_id: context.userId,
       lien: data.lien,
       titre: String(s["titre"] ?? "").slice(0, 300),
@@ -130,7 +121,8 @@ export const verifierFavoris = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const sb = await admin();
-    const { data } = await table(sb, "favoris")
+    const { data } = await sb
+      .from("favoris")
       .select("id, lien, verifie_le")
       .eq("user_id", context.userId)
       .order("verifie_le", { ascending: true, nullsFirst: true })
@@ -143,7 +135,8 @@ export const verifierFavoris = createServerFn({ method: "POST" })
       aVerifier.map(async (f) => ({ id: f.id, etat: await sonder(f.lien) })),
     );
     for (const r of resultats) {
-      await table(sb, "favoris")
+      await sb
+        .from("favoris")
         .update({ lien_etat: r.etat, verifie_le: new Date().toISOString() })
         .eq("id", r.id)
         .eq("user_id", context.userId);

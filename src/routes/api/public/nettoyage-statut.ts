@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { json, rpcLiee, verifierSecret } from "@/lib/publication.server";
+import { json, verifierSecret } from "@/lib/publication.server";
 
 // Appelée par n8n après un passage de nettoyage : nombre de messages supprimés ; « reste » remet le nettoyage en file.
 export const Route = createFileRoute("/api/public/nettoyage-statut")({
@@ -21,7 +21,7 @@ export const Route = createFileRoute("/api/public/nettoyage-statut")({
         const detail =
           typeof body["detail"] === "string" ? (body["detail"] as string).slice(0, 300) : "";
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const { data, error } = await rpcLiee(supabaseAdmin)("terminer_nettoyage", {
+        const { data, error } = await supabaseAdmin.rpc("terminer_nettoyage", {
           p_id: id,
           p_ok: body["ok"] === true,
           p_supprimes: supprimes,

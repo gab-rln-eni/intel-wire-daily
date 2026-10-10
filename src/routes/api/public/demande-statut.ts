@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { json, rpcLiee, verifierSecret } from "@/lib/publication.server";
+import { json, verifierSecret } from "@/lib/publication.server";
 
 // Appelée par n8n en fin de traitement. L'app juge sur les faits : la demande est terminée
 // si la synthèse du jour a été republiée après sa prise en charge, sinon elle est en échec.
@@ -21,8 +21,10 @@ export const Route = createFileRoute("/api/public/demande-statut")({
         const erreur =
           typeof body["erreur"] === "string" ? (body["erreur"] as string).slice(0, 300) : "";
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const rpc = rpcLiee(supabaseAdmin);
-        const { data, error } = await rpc("terminer_demande", { p_id: id, p_erreur: erreur });
+        const { data, error } = await supabaseAdmin.rpc("terminer_demande", {
+          p_id: id,
+          p_erreur: erreur,
+        });
         if (error) return json({ error: "Écriture impossible" }, 500);
         return json(data);
       },

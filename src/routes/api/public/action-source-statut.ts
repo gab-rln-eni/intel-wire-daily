@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { json, rpcLiee, verifierSecret } from "@/lib/publication.server";
+import { json, verifierSecret } from "@/lib/publication.server";
 
 // Appelée par n8n après application au classeur : appliquee, ou refusee avec le motif des contrôles.
 export const Route = createFileRoute("/api/public/action-source-statut")({
@@ -23,7 +23,7 @@ export const Route = createFileRoute("/api/public/action-source-statut")({
         const detail =
           typeof body["detail"] === "string" ? (body["detail"] as string).slice(0, 300) : "";
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const { data, error } = await rpcLiee(supabaseAdmin)("terminer_action_source", {
+        const { data, error } = await supabaseAdmin.rpc("terminer_action_source", {
           p_id: id,
           p_statut: statut,
           p_detail: detail,
