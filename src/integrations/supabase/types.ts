@@ -14,30 +14,274 @@ export type Database = {
   }
   public: {
     Tables: {
+      actions_sources: {
+        Row: {
+          action: string
+          auteur: string | null
+          auteur_email: string | null
+          categorie: string | null
+          cree_le: string
+          detail: string | null
+          id: string
+          motif: string
+          nom: string
+          priorite: string | null
+          pris_le: string | null
+          role: string | null
+          statut: string
+          traite_le: string | null
+          url: string | null
+          valide_par: string | null
+        }
+        Insert: {
+          action: string
+          auteur?: string | null
+          auteur_email?: string | null
+          categorie?: string | null
+          cree_le?: string
+          detail?: string | null
+          id?: string
+          motif: string
+          nom: string
+          priorite?: string | null
+          pris_le?: string | null
+          role?: string | null
+          statut?: string
+          traite_le?: string | null
+          url?: string | null
+          valide_par?: string | null
+        }
+        Update: {
+          action?: string
+          auteur?: string | null
+          auteur_email?: string | null
+          categorie?: string | null
+          cree_le?: string
+          detail?: string | null
+          id?: string
+          motif?: string
+          nom?: string
+          priorite?: string | null
+          pris_le?: string | null
+          role?: string | null
+          statut?: string
+          traite_le?: string | null
+          url?: string | null
+          valide_par?: string | null
+        }
+        Relationships: []
+      }
+      admin_journal: {
+        Row: {
+          action: string
+          auteur: string | null
+          auteur_email: string | null
+          cible: string | null
+          cree_le: string
+          detail: string | null
+          id: string
+          resultat: string
+          role: string | null
+        }
+        Insert: {
+          action: string
+          auteur?: string | null
+          auteur_email?: string | null
+          cible?: string | null
+          cree_le?: string
+          detail?: string | null
+          id?: string
+          resultat?: string
+          role?: string | null
+        }
+        Update: {
+          action?: string
+          auteur?: string | null
+          auteur_email?: string | null
+          cible?: string | null
+          cree_le?: string
+          detail?: string | null
+          id?: string
+          resultat?: string
+          role?: string | null
+        }
+        Relationships: []
+      }
+      chaine_etat: {
+        Row: {
+          dernier_appel: string | null
+          id: number
+        }
+        Insert: {
+          dernier_appel?: string | null
+          id?: number
+        }
+        Update: {
+          dernier_appel?: string | null
+          id?: number
+        }
+        Relationships: []
+      }
       demandes: {
         Row: {
           created_at: string
           demandeur: string | null
+          detail: string | null
           id: string
+          pris_le: string | null
           statut: string
+          sujets_avant: number | null
+          termine_le: string | null
         }
         Insert: {
           created_at?: string
           demandeur?: string | null
+          detail?: string | null
           id?: string
+          pris_le?: string | null
           statut?: string
+          sujets_avant?: number | null
+          termine_le?: string | null
         }
         Update: {
           created_at?: string
           demandeur?: string | null
+          detail?: string | null
           id?: string
+          pris_le?: string | null
           statut?: string
+          sujets_avant?: number | null
+          termine_le?: string | null
+        }
+        Relationships: []
+      }
+      favoris: {
+        Row: {
+          date_veille: string | null
+          id: string
+          lien: string
+          lien_etat: string
+          resume: string | null
+          rubrique: string | null
+          sauve_le: string
+          source: string | null
+          titre: string
+          user_id: string
+          verifie_le: string | null
+        }
+        Insert: {
+          date_veille?: string | null
+          id?: string
+          lien: string
+          lien_etat?: string
+          resume?: string | null
+          rubrique?: string | null
+          sauve_le?: string
+          source?: string | null
+          titre: string
+          user_id: string
+          verifie_le?: string | null
+        }
+        Update: {
+          date_veille?: string | null
+          id?: string
+          lien?: string
+          lien_etat?: string
+          resume?: string | null
+          rubrique?: string | null
+          sauve_le?: string
+          source?: string | null
+          titre?: string
+          user_id?: string
+          verifie_le?: string | null
+        }
+        Relationships: []
+      }
+      lectures: {
+        Row: {
+          lien: string
+          lu_le: string
+          user_id: string
+        }
+        Insert: {
+          lien: string
+          lu_le?: string
+          user_id: string
+        }
+        Update: {
+          lien?: string
+          lu_le?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      nettoyages_salons: {
+        Row: {
+          auteur_email: string | null
+          cree_le: string
+          detail: string | null
+          id: string
+          mode: string
+          portee: string
+          pris_le: string | null
+          salon: string
+          statut: string
+          supprimes: number
+          termine_le: string | null
+        }
+        Insert: {
+          auteur_email?: string | null
+          cree_le?: string
+          detail?: string | null
+          id?: string
+          mode: string
+          portee: string
+          pris_le?: string | null
+          salon: string
+          statut?: string
+          supprimes?: number
+          termine_le?: string | null
+        }
+        Update: {
+          auteur_email?: string | null
+          cree_le?: string
+          detail?: string | null
+          id?: string
+          mode?: string
+          portee?: string
+          pris_le?: string | null
+          salon?: string
+          statut?: string
+          supprimes?: number
+          termine_le?: string | null
+        }
+        Relationships: []
+      }
+      parametres: {
+        Row: {
+          cle: string
+          maj_le: string
+          maj_par: string | null
+          valeur: Json
+        }
+        Insert: {
+          cle: string
+          maj_le?: string
+          maj_par?: string | null
+          valeur: Json
+        }
+        Update: {
+          cle?: string
+          maj_le?: string
+          maj_par?: string | null
+          valeur?: Json
         }
         Relationships: []
       }
       profiles: {
         Row: {
           canal: string
+          consentement_le: string | null
           created_at: string
           discord_webhook_url: string | null
           email: string | null
@@ -46,6 +290,7 @@ export type Database = {
         }
         Insert: {
           canal?: string
+          consentement_le?: string | null
           created_at?: string
           discord_webhook_url?: string | null
           email?: string | null
@@ -54,11 +299,51 @@ export type Database = {
         }
         Update: {
           canal?: string
+          consentement_le?: string | null
           created_at?: string
           discord_webhook_url?: string | null
           email?: string | null
           id?: string
           rubriques?: string[]
+        }
+        Relationships: []
+      }
+      sources_miroir: {
+        Row: {
+          active: boolean
+          categorie: string | null
+          jours_echec: number | null
+          maj_le: string
+          nb_articles: number | null
+          nom: string
+          priorite: number | null
+          sante_le: string | null
+          statut_sante: string | null
+          url: string | null
+        }
+        Insert: {
+          active?: boolean
+          categorie?: string | null
+          jours_echec?: number | null
+          maj_le?: string
+          nb_articles?: number | null
+          nom: string
+          priorite?: number | null
+          sante_le?: string | null
+          statut_sante?: string | null
+          url?: string | null
+        }
+        Update: {
+          active?: boolean
+          categorie?: string | null
+          jours_echec?: number | null
+          maj_le?: string
+          nb_articles?: number | null
+          nom?: string
+          priorite?: number | null
+          sante_le?: string | null
+          statut_sante?: string | null
+          url?: string | null
         }
         Relationships: []
       }
@@ -191,10 +476,41 @@ export type Database = {
         }
         Returns: boolean
       }
+      lancer_demande: { Args: { p_user: string }; Returns: Json }
+      maintenance_executer: {
+        Args: { p_auteur: string; p_email: string; p_force: boolean }
+        Returns: Json
+      }
+      prendre_action_source: { Args: never; Returns: Json }
+      prendre_demande: { Args: never; Returns: Json }
+      prendre_nettoyage: { Args: never; Returns: Json }
+      publier_sources: { Args: { p: Json }; Returns: Json }
       publier_synthese: { Args: { p: Json }; Returns: Json }
+      purger_journal: {
+        Args: { p_auteur: string; p_email: string; p_jours: number }
+        Returns: Json
+      }
+      terminer_action_source: {
+        Args: { p_detail: string; p_id: string; p_statut: string }
+        Returns: Json
+      }
+      terminer_demande: {
+        Args: { p_erreur: string; p_id: string }
+        Returns: Json
+      }
+      terminer_nettoyage: {
+        Args: {
+          p_detail: string
+          p_id: string
+          p_ok: boolean
+          p_reste: boolean
+          p_supprimes: number
+        }
+        Returns: Json
+      }
     }
     Enums: {
-      app_role: "admin" | "user"
+      app_role: "admin" | "user" | "veilleur"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -322,7 +638,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user"],
+      app_role: ["admin", "user", "veilleur"],
     },
   },
 } as const
