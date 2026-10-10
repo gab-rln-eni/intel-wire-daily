@@ -36,7 +36,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data } = await supabase.rpc("has_role", { _user_id: u.id, _role: "admin" });
         setIsAdmin(!!data);
         // Rôle ajouté hors des types générés (D-WEB-10)
-        const { data: v } = await supabase.rpc("has_role", { _user_id: u.id, _role: "veilleur" as "admin" });
+        const { data: v } = await supabase.rpc("has_role", {
+          _user_id: u.id,
+          _role: "veilleur" as "admin",
+        });
         setIsVeilleur(!!v);
       } else {
         setIsAdmin(false);

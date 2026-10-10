@@ -2,7 +2,14 @@
 // lister-abonnes (D-AUD-01) : liste d'autorisation et mode test ; corps invalides (API-02) ; plafond de sujets (API-01).
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-type Etat = { users: object[]; profils: object[]; modeTest?: boolean; erreurMode?: boolean; roles: object[]; rpc?: unknown };
+type Etat = {
+  users: object[];
+  profils: object[];
+  modeTest?: boolean;
+  erreurMode?: boolean;
+  roles: object[];
+  rpc?: unknown;
+};
 const etat: Etat = { users: [], profils: [], roles: [] };
 
 vi.mock("@/integrations/supabase/client.server", () => ({
@@ -13,7 +20,10 @@ vi.mock("@/integrations/supabase/client.server", () => ({
         return {
           select: () => ({
             eq: () => ({
-              maybeSingle: async () => (etat.erreurMode ? { data: null, error: { message: "x" } } : { data: { valeur: etat.modeTest === true }, error: null }),
+              maybeSingle: async () =>
+                etat.erreurMode
+                  ? { data: null, error: { message: "x" } }
+                  : { data: { valeur: etat.modeTest === true }, error: null },
             }),
           }),
         };
@@ -21,16 +31,34 @@ vi.mock("@/integrations/supabase/client.server", () => ({
       throw new Error("table inattendue " + t);
     },
     rpc: async () => ({ data: etat.rpc ?? { ok: true }, error: null }),
-    auth: { admin: { listUsers: async ({ page }: { page: number }) => ({ data: { users: page === 1 ? etat.users : [] }, error: null }) } },
+    auth: {
+      admin: {
+        listUsers: async ({ page }: { page: number }) => ({
+          data: { users: page === 1 ? etat.users : [] },
+          error: null,
+        }),
+      },
+    },
   },
 }));
 
 const SECRET = "secret-de-test-0123456789";
 const req = (corps?: string, secret = SECRET) =>
-  new Request("https://x/api", { method: corps === undefined ? "GET" : "POST", headers: { "x-publication-secret": secret, "content-type": "application/json" }, body: corps ?? null });
-type Route = { options?: unknown; server?: { handlers: Record<string, (a: { request: Request }) => Promise<Response>> } };
+  new Request("https://x/api", {
+    method: corps === undefined ? "GET" : "POST",
+    headers: { "x-publication-secret": secret, "content-type": "application/json" },
+    body: corps ?? null,
+  });
+type Route = {
+  options?: unknown;
+  server?: { handlers: Record<string, (a: { request: Request }) => Promise<Response>> };
+};
 const appel = async (mod: { Route: Route }, methode: "GET" | "POST", r: Request) => {
-  const route = mod.Route as unknown as { options: { server: { handlers: Record<string, (a: { request: Request }) => Promise<Response>> } } };
+  const route = mod.Route as unknown as {
+    options: {
+      server: { handlers: Record<string, (a: { request: Request }) => Promise<Response>> };
+    };
+  };
   const h = route.options.server.handlers[methode]!;
   const rep = await h({ request: r });
   return { code: rep.status, corps: await rep.json().catch(() => null) };
@@ -67,7 +95,10 @@ describe("lister-abonnes", async () => {
   it("ne renvoie que les comptes confirmés et non suspendus, adresse du compte, champs limités", async () => {
     const r = await appel(mod, "GET", req());
     expect(r.corps.mode_test).toBe(false);
-    expect(r.corps.abonnes.map((x: { email: string }) => x.email).sort()).toEqual(["a@x.fr", "adm@x.fr"]);
+    expect(r.corps.abonnes.map((x: { email: string }) => x.email).sort()).toEqual([
+      "a@x.fr",
+      "adm@x.fr",
+    ]);
     expect(Object.keys(r.corps.abonnes[0]).sort()).toEqual(["canal", "email", "rubriques"]);
   });
   it("mode test : équipe seule", async () => {
@@ -99,7 +130,10 @@ describe("corps invalides (API-02) et plafond (API-01)", async () => {
   it("publier-synthese : plus de 100 sujets = 400", async () => {
     const mod = await import("@/routes/api/public/publier-synthese");
     const sujet = { titre: "t", lien: "https://x.fr/a", rubrique: "Recherche" };
-    const corps = { synthese: { date_veille: "2026-10-10", statut: "ENVOYE" }, sujets: Array.from({ length: 101 }, () => sujet) };
+    const corps = {
+      synthese: { date_veille: "2026-10-10", statut: "ENVOYE" },
+      sujets: Array.from({ length: 101 }, () => sujet),
+    };
     const r = await appel(mod, "POST", req(JSON.stringify(corps)));
     expect(r.code).toBe(400);
     expect(r.corps.error).toBe("trop de sujets");

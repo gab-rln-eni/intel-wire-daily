@@ -31,7 +31,9 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
     <div className="flex min-h-[50vh] items-center justify-center px-4">
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold text-foreground">Cette page n'a pas pu se charger</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Une erreur est survenue. Réessayez ou revenez à l'accueil.</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Une erreur est survenue. Réessayez ou revenez à l'accueil.
+        </p>
         <div className="mt-6 flex justify-center gap-2">
           <button
             onClick={() => {
@@ -96,7 +98,10 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <a href="#contenu" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:bg-card focus:px-3 focus:py-2">
+        <a
+          href="#contenu"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:bg-card focus:px-3 focus:py-2"
+        >
           Aller au contenu
         </a>
         <Header />

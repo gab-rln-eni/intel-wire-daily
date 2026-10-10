@@ -14,10 +14,12 @@ export const Route = createFileRoute("/api/public/demande-statut")({
         } catch {
           return json({ error: "JSON invalide" }, 400);
         }
-        if (!body || typeof body !== "object" || Array.isArray(body)) return json({ error: "JSON invalide" }, 400);
+        if (!body || typeof body !== "object" || Array.isArray(body))
+          return json({ error: "JSON invalide" }, 400);
         const id = String(body["id"] ?? "");
         if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "id invalide" }, 400);
-        const erreur = typeof body["erreur"] === "string" ? (body["erreur"] as string).slice(0, 300) : "";
+        const erreur =
+          typeof body["erreur"] === "string" ? (body["erreur"] as string).slice(0, 300) : "";
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const rpc = rpcLiee(supabaseAdmin);
         const { data, error } = await rpc("terminer_demande", { p_id: id, p_erreur: erreur });

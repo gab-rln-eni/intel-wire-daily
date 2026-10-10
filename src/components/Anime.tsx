@@ -5,7 +5,15 @@ const reduit = () =>
   typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
 /** Fait apparaître son contenu en fondu quand il entre à l'écran. Sans JavaScript, le contenu reste visible. */
-export function Apparition({ children, delai = 0, className = "" }: { children: ReactNode; delai?: number; className?: string }) {
+export function Apparition({
+  children,
+  delai = 0,
+  className = "",
+}: {
+  children: ReactNode;
+  delai?: number;
+  className?: string;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const [etat, setEtat] = useState<"statique" | "cache" | "visible">("statique");
   useEffect(() => {

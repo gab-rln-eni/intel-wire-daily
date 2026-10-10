@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { json, rpcLiee, verifierSecret } from "@/lib/publication.server";
 
 const txt = (v: unknown, max: number) => (v == null ? "" : String(v).trim().slice(0, max));
-const ent = (v: unknown) => (v == null || v === "" || !Number.isFinite(Number(v)) ? "" : String(Math.trunc(Number(v))));
+const ent = (v: unknown) =>
+  v == null || v === "" || !Number.isFinite(Number(v)) ? "" : String(Math.trunc(Number(v)));
 
 // Appelée par n8n (Fil_IA_Veille_Miroir_Sources) : instantané complet du classeur SOURCES et de la santé des sources.
 // La console lit ce miroir ; le classeur reste la seule référence. Les sources absentes de l'instantané sont retirées du miroir.
@@ -17,9 +18,11 @@ export const Route = createFileRoute("/api/public/publier-sources")({
         } catch {
           return json({ error: "JSON invalide" }, 400);
         }
-        if (!body || typeof body !== "object" || Array.isArray(body)) return json({ error: "JSON invalide" }, 400);
+        if (!body || typeof body !== "object" || Array.isArray(body))
+          return json({ error: "JSON invalide" }, 400);
         const brut = body["sources"];
-        if (!Array.isArray(brut) || brut.length === 0) return json({ error: "sources manquantes" }, 400);
+        if (!Array.isArray(brut) || brut.length === 0)
+          return json({ error: "sources manquantes" }, 400);
         if (brut.length > 500) return json({ error: "trop de sources" }, 400);
         const sources = (brut as Record<string, unknown>[]).map((s) => {
           const sante = txt(s?.["sante_le"], 10);
@@ -29,7 +32,11 @@ export const Route = createFileRoute("/api/public/publier-sources")({
             url: txt(s?.["url"], 500),
             categorie: txt(s?.["categorie"], 50),
             priorite: ent(s?.["priorite"]),
-            active: active === true || String(active ?? "").trim().toUpperCase() === "OUI",
+            active:
+              active === true ||
+              String(active ?? "")
+                .trim()
+                .toUpperCase() === "OUI",
             statut_sante: txt(s?.["statut_sante"], 20),
             jours_echec: ent(s?.["jours_echec"]),
             nb_articles: ent(s?.["nb_articles"]),

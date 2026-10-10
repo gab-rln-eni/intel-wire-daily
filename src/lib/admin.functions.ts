@@ -27,7 +27,9 @@ interface Requete extends PromiseLike<{ data: unknown; error: unknown }> {
 }
 const table = (sb: SB, nom: string) => (sb.from as unknown as (n: string) => Requete).bind(sb)(nom);
 const rpc = (sb: SB, nom: string, args?: object) =>
-  (sb.rpc as unknown as (f: string, a?: object) => Promise<{ data: unknown; error: unknown }>).bind(sb)(nom, args);
+  (sb.rpc as unknown as (f: string, a?: object) => Promise<{ data: unknown; error: unknown }>).bind(
+    sb,
+  )(nom, args);
 
 async function roleDe(sb: SB, userId: string): Promise<Role | null> {
   const { data } = await sb.from("user_roles").select("role").eq("user_id", userId);
@@ -50,18 +52,35 @@ async function exiger(userId: string, autorises: Role[], action: string) {
 
 type Qui = { sb: SB; role: Role; email: string };
 /** Journal d'audit, ajout seul : une ligne par action, réussie ou refusée. */
-async function journal(q: Qui, auteur: string, action: string, cible: string, detail = "", resultat = "ok") {
-  await table(q.sb, "admin_journal").insert({ auteur, auteur_email: q.email, role: q.role, action, cible, detail: detail.slice(0, 300), resultat });
+async function journal(
+  q: Qui,
+  auteur: string,
+  action: string,
+  cible: string,
+  detail = "",
+  resultat = "ok",
+) {
+  await table(q.sb, "admin_journal").insert({
+    auteur,
+    auteur_email: q.email,
+    role: q.role,
+    action,
+    cible,
+    detail: detail.slice(0, 300),
+    resultat,
+  });
 }
 
 /** Cible valide, jamais soi-même ni un administrateur. */
 async function exigerCible(sb: SB, appelant: string, cible: string) {
   if (!/^[0-9a-f-]{36}$/i.test(cible)) throw new Error("Identifiant invalide");
   if (cible === appelant) throw new Error("Action impossible sur votre propre compte");
-  if ((await roleDe(sb, cible)) === "admin") throw new Error("Action impossible sur un compte administrateur");
+  if ((await roleDe(sb, cible)) === "admin")
+    throw new Error("Action impossible sur un compte administrateur");
 }
 
-const emailDe = async (sb: SB, id: string) => (await sb.auth.admin.getUserById(id)).data.user?.email ?? id;
+const emailDe = async (sb: SB, id: string) =>
+  (await sb.auth.admin.getUserById(id)).data.user?.email ?? id;
 
 /** g***@d***.fr : ce que voit le veilleur. */
 export function masquer(email: string) {
@@ -115,7 +134,8 @@ export const listerUtilisateurs = createServerFn({ method: "GET" })
           suspendu: !!bannedUntil && Date.parse(bannedUntil) > maintenant,
           admin: role === "admin",
           role,
-          canal: prof?.canal === "discord" ? "discord" : prof?.canal === "aucun" ? "aucun" : "email",
+          canal:
+            prof?.canal === "discord" ? "discord" : prof?.canal === "aucun" ? "aucun" : "email",
           nb_rubriques: prof?.rubriques?.length ?? 0,
         } satisfies UtilisateurAdmin;
       })
@@ -126,7 +146,12 @@ export const listerUtilisateurs = createServerFn({ method: "GET" })
 const avecId = (d: { id: string }) => ({ id: String(d?.id ?? "") });
 
 /** Action admin sur un compte : contrôle, exécution, journal (réussite comme refus). */
-async function agirSurCompte(userId: string, cible: string, action: string, faire: (sb: SB) => Promise<{ error: unknown }>) {
+async function agirSurCompte(
+  userId: string,
+  cible: string,
+  action: string,
+  faire: (sb: SB) => Promise<{ error: unknown }>,
+) {
   const q = await exiger(userId, ["admin"], action);
   const email = await emailDe(q.sb, cible);
   try {
@@ -145,31 +170,46 @@ export const suspendreUtilisateur = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(avecId)
   .handler(({ context, data }) =>
-    agirSurCompte(context.userId, data.id, "Suspendre", (sb) => sb.auth.admin.updateUserById(data.id, { ban_duration: DUREE_SUSPENSION })),
+    agirSurCompte(context.userId, data.id, "Suspendre", (sb) =>
+      sb.auth.admin.updateUserById(data.id, { ban_duration: DUREE_SUSPENSION }),
+    ),
   );
 
 export const reactiverUtilisateur = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(avecId)
   .handler(({ context, data }) =>
-    agirSurCompte(context.userId, data.id, "Réactiver", (sb) => sb.auth.admin.updateUserById(data.id, { ban_duration: "none" })),
+    agirSurCompte(context.userId, data.id, "Réactiver", (sb) =>
+      sb.auth.admin.updateUserById(data.id, { ban_duration: "none" }),
+    ),
   );
 
 export const supprimerUtilisateur = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(avecId)
-  .handler(({ context, data }) => agirSurCompte(context.userId, data.id, "Supprimer", (sb) => sb.auth.admin.deleteUser(data.id)));
+  .handler(({ context, data }) =>
+    agirSurCompte(context.userId, data.id, "Supprimer", (sb) => sb.auth.admin.deleteUser(data.id)),
+  );
 
 /** Nommer ou retirer un veilleur : propriétaire seul, jamais sur soi ni sur un admin. */
 export const definirVeilleur = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { id: string; veilleur: boolean }) => ({ id: String(d?.id ?? ""), veilleur: d?.veilleur === true }))
+  .inputValidator((d: { id: string; veilleur: boolean }) => ({
+    id: String(d?.id ?? ""),
+    veilleur: d?.veilleur === true,
+  }))
   .handler(({ context, data }) =>
-    agirSurCompte(context.userId, data.id, data.veilleur ? "Nommer veilleur" : "Retirer veilleur", async (sb) => {
-      if (!data.veilleur) return table(sb, "user_roles").delete().eq("user_id", data.id).eq("role", "veilleur");
-      if ((await roleDe(sb, data.id)) === "veilleur") return { error: null }; // déjà veilleur : rien à faire
-      return table(sb, "user_roles").insert({ user_id: data.id, role: "veilleur" });
-    }),
+    agirSurCompte(
+      context.userId,
+      data.id,
+      data.veilleur ? "Nommer veilleur" : "Retirer veilleur",
+      async (sb) => {
+        if (!data.veilleur)
+          return table(sb, "user_roles").delete().eq("user_id", data.id).eq("role", "veilleur");
+        if ((await roleDe(sb, data.id)) === "veilleur") return { error: null }; // déjà veilleur : rien à faire
+        return table(sb, "user_roles").insert({ user_id: data.id, role: "veilleur" });
+      },
+    ),
   );
 
 /** Veille à la demande : admin et veilleur ; garde-fous en base (une à la fois, 15 min d'écart, 5 par jour). */
@@ -180,7 +220,14 @@ export const lancerVeille = createServerFn({ method: "POST" })
     const { data, error } = await rpc(q.sb, "lancer_demande", { p_user: context.userId });
     const r = (data ?? {}) as { ok?: boolean; motif?: string };
     if (error || !r.ok) {
-      await journal(q, context.userId, "Lancer une veille", "file des demandes", r.motif ?? "erreur", "refus");
+      await journal(
+        q,
+        context.userId,
+        "Lancer une veille",
+        "file des demandes",
+        r.motif ?? "erreur",
+        "refus",
+      );
       throw new Error(r.motif ?? "Demande impossible");
     }
     await journal(q, context.userId, "Lancer une veille", "file des demandes");
@@ -192,15 +239,28 @@ export const basculerModeTest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { actif: boolean }) => ({ actif: d?.actif === true }))
   .handler(async ({ context, data }) => {
-    const q = await exiger(context.userId, ["admin"], data.actif ? "Activer le mode test" : "Désactiver le mode test");
+    const q = await exiger(
+      context.userId,
+      ["admin"],
+      data.actif ? "Activer le mode test" : "Désactiver le mode test",
+    );
     // Déjà dans l'état demandé (double clic, deux onglets) : rien à écrire, rien à journaliser
-    const { data: actuel } = await table(q.sb, "parametres").select("valeur").eq("cle", "mode_test").maybeSingle();
-    if (actuel && (actuel["valeur"] === true) === data.actif) return { ok: true, actif: data.actif, inchange: true };
+    const { data: actuel } = await table(q.sb, "parametres")
+      .select("valeur")
+      .eq("cle", "mode_test")
+      .maybeSingle();
+    if (actuel && (actuel["valeur"] === true) === data.actif)
+      return { ok: true, actif: data.actif, inchange: true };
     const { error } = await table(q.sb, "parametres")
       .update({ valeur: data.actif, maj_le: new Date().toISOString(), maj_par: q.email })
       .eq("cle", "mode_test");
     if (error) throw new Error("Bascule impossible");
-    await journal(q, context.userId, data.actif ? "Activer le mode test" : "Désactiver le mode test", "mode_test");
+    await journal(
+      q,
+      context.userId,
+      data.actif ? "Activer le mode test" : "Désactiver le mode test",
+      "mode_test",
+    );
     return { ok: true, actif: data.actif, inchange: false };
   });
 
@@ -213,18 +273,31 @@ const ACTIONS = ["Ajouter", "Activer", "Désactiver"] as const;
 export const CATEGORIES = ["Officiel", "Média EN", "Média FR", "Gouvernance", "Autre"];
 type ActionSource = (typeof ACTIONS)[number];
 
-export type ProposeSource = { action: ActionSource; nom: string; url?: string; categorie?: string; priorite?: string; motif: string };
+export type ProposeSource = {
+  action: ActionSource;
+  nom: string;
+  url?: string;
+  categorie?: string;
+  priorite?: string;
+  motif: string;
+};
 
 function nettoyer(d: ProposeSource): Required<ProposeSource> {
   const action = ACTIONS.includes(d?.action) ? d.action : ("" as ActionSource);
   const prio = String(d?.priorite ?? "").trim();
   return {
     action,
-    nom: String(d?.nom ?? "").trim().slice(0, 200),
-    url: String(d?.url ?? "").trim().slice(0, 500),
+    nom: String(d?.nom ?? "")
+      .trim()
+      .slice(0, 200),
+    url: String(d?.url ?? "")
+      .trim()
+      .slice(0, 500),
     categorie: CATEGORIES.includes(String(d?.categorie ?? "")) ? String(d.categorie) : "Autre",
     priorite: ["1", "2", "3"].includes(prio) ? prio : "1",
-    motif: String(d?.motif ?? "").trim().slice(0, 300),
+    motif: String(d?.motif ?? "")
+      .trim()
+      .slice(0, 300),
   };
 }
 
@@ -233,17 +306,30 @@ async function controler(sb: SB, a: Required<ProposeSource>) {
   if (!a.action) return "action invalide";
   if (!a.nom) return "nom obligatoire";
   if (!a.motif) return "motif obligatoire";
-  const { data: deja } = await table(sb, "actions_sources").select("id").eq("nom", a.nom).eq("statut", "a_valider").maybeSingle();
+  const { data: deja } = await table(sb, "actions_sources")
+    .select("id")
+    .eq("nom", a.nom)
+    .eq("statut", "a_valider")
+    .maybeSingle();
   if (deja) return "une action sur cette source attend déjà la validation";
   if (a.action === "Ajouter") {
     if (!/^https?:\/\/\S+$/i.test(a.url)) return "URL invalide (http ou https, sans espace)";
-    const { data: n } = await table(sb, "sources_miroir").select("nom").ilike("nom", a.nom).maybeSingle();
+    const { data: n } = await table(sb, "sources_miroir")
+      .select("nom")
+      .ilike("nom", a.nom)
+      .maybeSingle();
     if (n) return `source déjà présente : ${a.nom}`;
-    const { data: u } = await table(sb, "sources_miroir").select("nom").ilike("url", a.url).maybeSingle();
+    const { data: u } = await table(sb, "sources_miroir")
+      .select("nom")
+      .ilike("url", a.url)
+      .maybeSingle();
     if (u) return `URL déjà présente (source ${String(u["nom"])})`;
     return "";
   }
-  const { data: s } = await table(sb, "sources_miroir").select("nom, active").eq("nom", a.nom).maybeSingle();
+  const { data: s } = await table(sb, "sources_miroir")
+    .select("nom, active")
+    .eq("nom", a.nom)
+    .maybeSingle();
   if (!s) return `source inconnue : ${a.nom}`;
   if (a.action === "Activer" && s["active"] === true) return "source déjà active";
   if (a.action === "Désactiver" && s["active"] === false) return "source déjà inactive";
@@ -277,14 +363,23 @@ export const proposerActionSource = createServerFn({ method: "POST" })
     };
     const { error } = await table(q.sb, "actions_sources").insert(ligne);
     if (error) throw new Error("Enregistrement impossible");
-    await journal(q, context.userId, intitule, data.nom, aValider ? "soumise à validation" : "transmise à n8n");
+    await journal(
+      q,
+      context.userId,
+      intitule,
+      data.nom,
+      aValider ? "soumise à validation" : "transmise à n8n",
+    );
     return { ok: true, a_valider: aValider };
   });
 
 /** Validation par l'admin d'une action proposée par un veilleur : transmise à n8n, ou annulée. */
 export const validerActionSource = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { id: string; accepter: boolean }) => ({ id: String(d?.id ?? ""), accepter: d?.accepter === true }))
+  .inputValidator((d: { id: string; accepter: boolean }) => ({
+    id: String(d?.id ?? ""),
+    accepter: d?.accepter === true,
+  }))
   .handler(async ({ context, data }) => {
     const intitule = data.accepter ? "Source : valider" : "Source : rejeter";
     const q = await exiger(context.userId, ["admin"], intitule);
@@ -293,13 +388,25 @@ export const validerActionSource = createServerFn({ method: "POST" })
       throw new Error(motif);
     };
     if (!/^[0-9a-f-]{36}$/i.test(data.id)) await refuser("Identifiant invalide", "");
-    const { data: a } = await table(q.sb, "actions_sources").select("nom, action, statut").eq("id", data.id).maybeSingle();
-    if (!a || a["statut"] !== "a_valider") return refuser("Action introuvable ou déjà traitée", a ? `${String(a["action"])} ${String(a["nom"])}` : data.id);
+    const { data: a } = await table(q.sb, "actions_sources")
+      .select("nom, action, statut")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (!a || a["statut"] !== "a_valider")
+      return refuser(
+        "Action introuvable ou déjà traitée",
+        a ? `${String(a["action"])} ${String(a["nom"])}` : data.id,
+      );
     const { error } = await table(q.sb, "actions_sources")
       .update(
         data.accepter
           ? { statut: "en_attente", valide_par: q.email }
-          : { statut: "annulee", valide_par: q.email, traite_le: new Date().toISOString(), detail: "Rejetée par l'administrateur" },
+          : {
+              statut: "annulee",
+              valide_par: q.email,
+              traite_le: new Date().toISOString(),
+              detail: "Rejetée par l'administrateur",
+            },
       )
       .eq("id", data.id)
       .eq("statut", "a_valider");
@@ -315,7 +422,11 @@ export const lancerMaintenance = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const q = await exiger(context.userId, ["admin"], "Maintenance des données");
-    const { data, error } = await rpc(q.sb, "maintenance_executer", { p_force: true, p_auteur: context.userId, p_email: q.email });
+    const { data, error } = await rpc(q.sb, "maintenance_executer", {
+      p_force: true,
+      p_auteur: context.userId,
+      p_email: q.email,
+    });
     if (error) {
       await journal(q, context.userId, "Maintenance des données", "base", "erreur", "refus");
       throw new Error("Maintenance impossible");
@@ -329,8 +440,13 @@ export const purgerJournal = createServerFn({ method: "POST" })
   .inputValidator((d: { jours: number }) => ({ jours: Math.trunc(Number(d?.jours)) }))
   .handler(async ({ context, data }) => {
     const q = await exiger(context.userId, ["admin"], "Purger le journal");
-    if (![90, 180, 365].includes(data.jours)) throw new Error("Durée invalide (90, 180 ou 365 jours)");
-    const { data: r, error } = await rpc(q.sb, "purger_journal", { p_jours: data.jours, p_auteur: context.userId, p_email: q.email });
+    if (![90, 180, 365].includes(data.jours))
+      throw new Error("Durée invalide (90, 180 ou 365 jours)");
+    const { data: r, error } = await rpc(q.sb, "purger_journal", {
+      p_jours: data.jours,
+      p_auteur: context.userId,
+      p_email: q.email,
+    });
     const res = (r ?? {}) as { ok?: boolean; supprimees?: number; motif?: string };
     if (error || !res.ok) throw new Error(res.motif ?? "Purge impossible");
     return { ok: true, supprimees: res.supprimees ?? 0 };
@@ -348,7 +464,12 @@ export const demanderNettoyage = createServerFn({ method: "POST" })
     const q = await exiger(context.userId, ["admin"], intitule);
     if (!data.salon || !data.portee) throw new Error("Salon ou portée invalide");
     const cible = `#${data.salon} (${data.portee === "tout" ? "tous les messages" : "plus de 30 jours"})`;
-    const { error } = await table(q.sb, "nettoyages_salons").insert({ salon: data.salon, portee: data.portee, mode: "manuel", auteur_email: q.email });
+    const { error } = await table(q.sb, "nettoyages_salons").insert({
+      salon: data.salon,
+      portee: data.portee,
+      mode: "manuel",
+      auteur_email: q.email,
+    });
     if (error) {
       await journal(q, context.userId, intitule, cible, "erreur", "refus");
       throw new Error("Demande impossible");

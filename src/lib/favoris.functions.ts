@@ -23,7 +23,8 @@ async function admin() {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   return supabaseAdmin;
 }
-const table = (sb: Admin, nom: string) => (sb.from as unknown as (n: string) => Requete).bind(sb)(nom);
+const table = (sb: Admin, nom: string) =>
+  (sb.from as unknown as (n: string) => Requete).bind(sb)(nom);
 
 const lienValide = (d: { lien: string }) => {
   const lien = String(d?.lien ?? "").trim();
@@ -43,8 +44,13 @@ export const sauverFavori = createServerFn({ method: "POST" })
       .limit(1)
       .maybeSingle();
     if (!s) throw new Error("Article introuvable dans les synthèses publiées");
-    const { count } = (await table(sb, "favoris").select("id", { count: "exact", head: true }).eq("user_id", context.userId)) as { count?: number | null };
-    if ((count ?? 0) >= MAX_FAVORIS) throw new Error(`Limite de ${MAX_FAVORIS} articles sauvegardés atteinte : retirez-en un dans Mes articles`);
+    const { count } = (await table(sb, "favoris")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", context.userId)) as { count?: number | null };
+    if ((count ?? 0) >= MAX_FAVORIS)
+      throw new Error(
+        `Limite de ${MAX_FAVORIS} articles sauvegardés atteinte : retirez-en un dans Mes articles`,
+      );
     const synth = s["syntheses"] as { date_veille?: string } | null;
     const { error } = await table(sb, "favoris").insert({
       user_id: context.userId,
@@ -56,7 +62,8 @@ export const sauverFavori = createServerFn({ method: "POST" })
       date_veille: synth?.date_veille ?? null,
     });
     // Doublon (déjà sauvegardé) : sans effet, c'est l'état voulu
-    if (error && (error as { code?: string }).code !== "23505") throw new Error("Sauvegarde impossible");
+    if (error && (error as { code?: string }).code !== "23505")
+      throw new Error("Sauvegarde impossible");
     return { ok: true };
   });
 
@@ -64,7 +71,13 @@ export const sauverFavori = createServerFn({ method: "POST" })
 function adressePublique(u: URL) {
   const h = u.hostname.toLowerCase();
   if (!/^https?:$/.test(u.protocol)) return false;
-  if (h === "localhost" || h.endsWith(".local") || h.endsWith(".internal") || h.endsWith(".localhost")) return false;
+  if (
+    h === "localhost" ||
+    h.endsWith(".local") ||
+    h.endsWith(".internal") ||
+    h.endsWith(".localhost")
+  )
+    return false;
   if (/^\d{1,3}(\.\d{1,3}){3}$/.test(h) || h.includes(":") || h.startsWith("[")) return false;
   return h.includes(".");
 }
@@ -88,7 +101,10 @@ async function sonder(lien: string): Promise<Etat> {
         method: methode,
         redirect: "manual", // CYB-10 : redirection jamais suivie (cible non contrôlée) ; une réponse 3xx compte comme « ok »
         signal: ctrl.signal,
-        headers: { "user-agent": "LeFilIA-verif-liens/1.0", ...(methode === "GET" ? { range: "bytes=0-0" } : {}) },
+        headers: {
+          "user-agent": "LeFilIA-verif-liens/1.0",
+          ...(methode === "GET" ? { range: "bytes=0-0" } : {}),
+        },
       });
       return r.status;
     } finally {
@@ -102,7 +118,9 @@ async function sonder(lien: string): Promise<Etat> {
     if (code >= 200 && code < 400) return "ok";
     return "incertain";
   } catch (e) {
-    const m = String((e as { cause?: { code?: string } })?.cause?.code ?? (e as Error)?.message ?? "");
+    const m = String(
+      (e as { cause?: { code?: string } })?.cause?.code ?? (e as Error)?.message ?? "",
+    );
     return /ENOTFOUND|EAI_AGAIN|getaddrinfo|DNS/i.test(m) ? "rompu" : "incertain";
   }
 }
@@ -121,9 +139,17 @@ export const verifierFavoris = createServerFn({ method: "POST" })
     const aVerifier = ((data ?? []) as { id: string; lien: string; verifie_le: string | null }[])
       .filter((f) => !f.verifie_le || maintenant - Date.parse(f.verifie_le) > DELAI_VERIF_MS)
       .slice(0, PAR_PASSAGE);
-    const resultats = await Promise.all(aVerifier.map(async (f) => ({ id: f.id, etat: await sonder(f.lien) })));
+    const resultats = await Promise.all(
+      aVerifier.map(async (f) => ({ id: f.id, etat: await sonder(f.lien) })),
+    );
     for (const r of resultats) {
-      await table(sb, "favoris").update({ lien_etat: r.etat, verifie_le: new Date().toISOString() }).eq("id", r.id).eq("user_id", context.userId);
+      await table(sb, "favoris")
+        .update({ lien_etat: r.etat, verifie_le: new Date().toISOString() })
+        .eq("id", r.id)
+        .eq("user_id", context.userId);
     }
-    return { verifies: resultats.length, rompus: resultats.filter((r) => r.etat === "rompu").length };
+    return {
+      verifies: resultats.length,
+      rompus: resultats.filter((r) => r.etat === "rompu").length,
+    };
   });

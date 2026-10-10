@@ -14,7 +14,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useNonLus } from "@/lib/lecture";
 
-const navBase = "relative px-2 py-1.5 text-sm transition-colors after:absolute after:inset-x-2 after:-bottom-[13px] after:h-0.5 after:transition-colors whitespace-nowrap";
+const navBase =
+  "relative px-2 py-1.5 text-sm transition-colors after:absolute after:inset-x-2 after:-bottom-[13px] after:h-0.5 after:transition-colors whitespace-nowrap";
 const navCls = `${navBase} text-muted-foreground hover:text-foreground after:bg-transparent hover:after:bg-border`;
 const activeCls = { className: `${navBase} font-semibold text-foreground after:bg-primary` };
 
@@ -65,7 +66,8 @@ export function Header() {
   const nonLus = useNonLus(user?.id);
   const navigate = useNavigate();
   const loc = useRouterState({ select: (s) => s.location });
-  const vue = loc.pathname === "/compte" ? ((loc.search as { vue?: string }).vue ?? "synthese") : null;
+  const vue =
+    loc.pathname === "/compte" ? ((loc.search as { vue?: string }).vue ?? "synthese") : null;
   const item = (v: string) => ({
     className: vue === v ? activeCls.className : navCls,
     "aria-current": vue === v ? ("page" as const) : undefined,
@@ -85,25 +87,35 @@ export function Header() {
             aria-label="Navigation principale"
             className="order-last -mx-2 -mb-3 flex basis-full items-center gap-0.5 overflow-x-auto pb-3 sm:order-none sm:mx-0 sm:mb-0 sm:flex-1 sm:basis-auto sm:gap-1 sm:overflow-visible sm:pb-0"
           >
-              <>
-                <Link to="/compte" search={{}} {...item("synthese")} aria-label={nonLus ? `Synthèse, ${nonLus} non lu${nonLus > 1 ? "s" : ""}` : undefined}>
-                  Synthèse
-                  {nonLus > 0 && (
-                    <span aria-hidden="true" className="ml-1.5 inline-block min-w-5 bg-primary px-1 text-center font-mono text-[0.65rem] leading-[1.15rem] text-primary-foreground tabular-nums">
-                      {nonLus}
-                    </span>
-                  )}
-                </Link>
-                <Link to="/compte" search={{ vue: "historique" }} {...item("historique")}>
-                  Historique
-                </Link>
-                <Link to="/compte" search={{ vue: "articles" }} {...item("articles")}>
-                  Mes articles
-                </Link>
-                <Link to="/compte" search={{ vue: "donnees" }} {...item("donnees")}>
-                  Mes données
-                </Link>
-              </>
+            <>
+              <Link
+                to="/compte"
+                search={{}}
+                {...item("synthese")}
+                aria-label={
+                  nonLus ? `Synthèse, ${nonLus} non lu${nonLus > 1 ? "s" : ""}` : undefined
+                }
+              >
+                Synthèse
+                {nonLus > 0 && (
+                  <span
+                    aria-hidden="true"
+                    className="ml-1.5 inline-block min-w-5 bg-primary px-1 text-center font-mono text-[0.65rem] leading-[1.15rem] text-primary-foreground tabular-nums"
+                  >
+                    {nonLus}
+                  </span>
+                )}
+              </Link>
+              <Link to="/compte" search={{ vue: "historique" }} {...item("historique")}>
+                Historique
+              </Link>
+              <Link to="/compte" search={{ vue: "articles" }} {...item("articles")}>
+                Mes articles
+              </Link>
+              <Link to="/compte" search={{ vue: "donnees" }} {...item("donnees")}>
+                Mes données
+              </Link>
+            </>
             {isStaff && (
               <Link to="/admin" className={navCls} activeProps={activeCls}>
                 Admin
@@ -118,39 +130,45 @@ export function Header() {
           <ThemeSwitch />
         </div>
         <div className="ml-auto flex items-center gap-2 sm:ml-0">
-        {user ? (
-          <div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" aria-label="Menu du compte">
-                {user.email?.split("@")[0] ?? "Compte"}
+          {user ? (
+            <div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" aria-label="Menu du compte">
+                    {user.email?.split("@")[0] ?? "Compte"}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel className="font-normal text-muted-foreground">
+                    {user.email}
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={() => navigate({ to: "/compte", search: { vue: "donnees" } })}
+                  >
+                    Mes données
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={async () => {
+                      await supabase.auth.signOut();
+                      navigate({ to: "/" });
+                    }}
+                  >
+                    Se déconnecter
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="ghost" onClick={() => openLogin("signin")}>
+                Se connecter
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel className="font-normal text-muted-foreground">{user.email}</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => navigate({ to: "/compte", search: { vue: "donnees" } })}>Mes données</DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={async () => {
-                  await supabase.auth.signOut();
-                  navigate({ to: "/" });
-                }}
-              >
-                Se déconnecter
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="ghost" onClick={() => openLogin("signin")}>
-              Se connecter
-            </Button>
-            <Button size="sm" onClick={() => openLogin("signup")}>
-              Créer un compte
-            </Button>
-          </div>
-        )}
+              <Button size="sm" onClick={() => openLogin("signup")}>
+                Créer un compte
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </header>
@@ -167,9 +185,30 @@ const DOCS: Record<Exclude<Doc, null>, { title: string; body: ReactNode }> = {
     title: "Mentions légales",
     body: (
       <>
-        <p><strong>Éditeur :</strong> Le Fil IA, projet personnel non commercial.</p>
-        <p><strong>Contact :</strong> <a href={`mailto:${CONTACT}`} className="link-accent">{CONTACT}</a> (aussi pour exercer vos droits sur vos données). Code source : <a href="https://github.com/gab-rln-eni/intel-wire-daily" target="_blank" rel="noopener noreferrer" className="link-accent">dépôt GitHub du projet<span className="sr-only"> (nouvel onglet)</span></a>.</p>
-        <p><strong>Hébergement :</strong> plateforme Lovable (lovable.dev). Société désignée par sa politique de confidentialité : Lovable Labs Sweden AB, Regeringsgatan 25, 111 53 Stockholm, Suède.</p>
+        <p>
+          <strong>Éditeur :</strong> Le Fil IA, projet personnel non commercial.
+        </p>
+        <p>
+          <strong>Contact :</strong>{" "}
+          <a href={`mailto:${CONTACT}`} className="link-accent">
+            {CONTACT}
+          </a>{" "}
+          (aussi pour exercer vos droits sur vos données). Code source :{" "}
+          <a
+            href="https://github.com/gab-rln-eni/intel-wire-daily"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="link-accent"
+          >
+            dépôt GitHub du projet<span className="sr-only"> (nouvel onglet)</span>
+          </a>
+          .
+        </p>
+        <p>
+          <strong>Hébergement :</strong> plateforme Lovable (lovable.dev). Société désignée par sa
+          politique de confidentialité : Lovable Labs Sweden AB, Regeringsgatan 25, 111 53
+          Stockholm, Suède.
+        </p>
       </>
     ),
   },
@@ -177,14 +216,60 @@ const DOCS: Record<Exclude<Doc, null>, { title: string; body: ReactNode }> = {
     title: "Confidentialité",
     body: (
       <>
-        <p><strong>Responsable du traitement :</strong> l'éditeur du Fil IA, joignable à <a href={`mailto:${CONTACT}`} className="link-accent">{CONTACT}</a>.</p>
-        <p><strong>Données traitées :</strong> adresse email, identité du compte Google (si vous l'utilisez pour vous connecter), canal de réception choisi, rubriques suivies, articles marqués comme lus et articles sauvegardés (avec l'état de leur lien). Si vous choisissez Discord, vous rejoignez le salon public #synthese-du-jour : votre pseudonyme Discord y est visible des autres membres, et Discord traite votre compte selon ses propres conditions.</p>
-        <p><strong>Finalité et base légale :</strong> envoi et consultation de la synthèse de veille, suivi de votre lecture et de vos articles sauvegardés. Ces traitements sont nécessaires au service que vous avez demandé en créant votre compte (exécution du service) ; vos choix de canal et de rubriques se modifient à tout moment.</p>
-        <p><strong>Destinataires :</strong> aucune donnée n'est vendue ni cédée. Prestataires techniques : Lovable (hébergement du site et de la base, avec ses propres sous-traitants d'infrastructure), Google (connexion avec Google, acheminement des emails), Discord (si vous choisissez ce canal). Certains peuvent traiter des données hors de l'Union européenne, dans le cadre de leurs propres garanties contractuelles.</p>
-        <p><strong>Envoi par email :</strong> si vous choisissez l'email, la synthèse vous est envoyée chaque matin depuis le compte Gmail du responsable du service (Google assure l'acheminement). Chaque email a un seul destinataire : votre adresse n'est visible d'aucun autre abonné.</p>
-        <p><strong>Conservation :</strong> compte et préférences jusqu'à la suppression du compte (effacement immédiat) ; compte jamais confirmé effacé après 30 jours ; date de votre dernier choix de réception gardée comme preuve de consentement ; articles marqués comme lus 90 jours ; articles sauvegardés jusqu'à leur retrait ou la suppression du compte ; synthèses 12 mois ; demandes de veille internes 90 jours ; journal des actions de l'équipe d'administration 12 mois. Sur Discord, les messages des salons #assistant et #alertes sont effacés au delà de 30 jours.</p>
-        <p><strong>Vérification des liens :</strong> pour signaler un lien rompu, l'app interroge une fois par jour au plus l'adresse de chaque article sauvegardé ; seule l'adresse publique de l'article est appelée, sans aucune donnée vous concernant.</p>
-        <p><strong>Vos droits :</strong> accès, portabilité, rectification, suppression, limitation et opposition (Mon compte, Réception : « Ne rien recevoir »). Pour toute demande : {CONTACT}. Vous pouvez aussi adresser une réclamation à la CNIL (cnil.fr). Depuis Mon compte, Mes données : téléchargez une copie de vos données ou supprimez votre compte à tout moment.</p>
+        <p>
+          <strong>Responsable du traitement :</strong> l'éditeur du Fil IA, joignable à{" "}
+          <a href={`mailto:${CONTACT}`} className="link-accent">
+            {CONTACT}
+          </a>
+          .
+        </p>
+        <p>
+          <strong>Données traitées :</strong> adresse email, identité du compte Google (si vous
+          l'utilisez pour vous connecter), canal de réception choisi, rubriques suivies, articles
+          marqués comme lus et articles sauvegardés (avec l'état de leur lien). Si vous choisissez
+          Discord, vous rejoignez le salon public #synthese-du-jour : votre pseudonyme Discord y est
+          visible des autres membres, et Discord traite votre compte selon ses propres conditions.
+        </p>
+        <p>
+          <strong>Finalité et base légale :</strong> envoi et consultation de la synthèse de veille,
+          suivi de votre lecture et de vos articles sauvegardés. Ces traitements sont nécessaires au
+          service que vous avez demandé en créant votre compte (exécution du service) ; vos choix de
+          canal et de rubriques se modifient à tout moment.
+        </p>
+        <p>
+          <strong>Destinataires :</strong> aucune donnée n'est vendue ni cédée. Prestataires
+          techniques : Lovable (hébergement du site et de la base, avec ses propres sous-traitants
+          d'infrastructure), Google (connexion avec Google, acheminement des emails), Discord (si
+          vous choisissez ce canal). Certains peuvent traiter des données hors de l'Union
+          européenne, dans le cadre de leurs propres garanties contractuelles.
+        </p>
+        <p>
+          <strong>Envoi par email :</strong> si vous choisissez l'email, la synthèse vous est
+          envoyée chaque matin depuis le compte Gmail du responsable du service (Google assure
+          l'acheminement). Chaque email a un seul destinataire : votre adresse n'est visible d'aucun
+          autre abonné.
+        </p>
+        <p>
+          <strong>Conservation :</strong> compte et préférences jusqu'à la suppression du compte
+          (effacement immédiat) ; compte jamais confirmé effacé après 30 jours ; date de votre
+          dernier choix de réception gardée comme preuve de consentement ; articles marqués comme
+          lus 90 jours ; articles sauvegardés jusqu'à leur retrait ou la suppression du compte ;
+          synthèses 12 mois ; demandes de veille internes 90 jours ; journal des actions de l'équipe
+          d'administration 12 mois. Sur Discord, les messages des salons #assistant et #alertes sont
+          effacés au delà de 30 jours.
+        </p>
+        <p>
+          <strong>Vérification des liens :</strong> pour signaler un lien rompu, l'app interroge une
+          fois par jour au plus l'adresse de chaque article sauvegardé ; seule l'adresse publique de
+          l'article est appelée, sans aucune donnée vous concernant.
+        </p>
+        <p>
+          <strong>Vos droits :</strong> accès, portabilité, rectification, suppression, limitation
+          et opposition (Mon compte, Réception : « Ne rien recevoir »). Pour toute demande :{" "}
+          {CONTACT}. Vous pouvez aussi adresser une réclamation à la CNIL (cnil.fr). Depuis Mon
+          compte, Mes données : téléchargez une copie de vos données ou supprimez votre compte à
+          tout moment.
+        </p>
       </>
     ),
   },
@@ -192,9 +277,19 @@ const DOCS: Record<Exclude<Doc, null>, { title: string; body: ReactNode }> = {
     title: "Cookies",
     body: (
       <>
-        <p>Le Fil IA utilise uniquement ce qui est strictement nécessaire à la connexion à votre compte. Aucun bandeau n'est donc requis.</p>
-        <p>Aucune publicité ni aucun traceur publicitaire n'est utilisé. La plateforme d'hébergement (Lovable) mesure la fréquentation du site de façon globale, depuis le même domaine.</p>
-        <p>Aucune police ni ressource n'est chargée depuis un service tiers. Votre choix de thème jour ou nuit est conservé dans votre navigateur (stockage local), sans cookie et sans transmission.</p>
+        <p>
+          Le Fil IA utilise uniquement ce qui est strictement nécessaire à la connexion à votre
+          compte. Aucun bandeau n'est donc requis.
+        </p>
+        <p>
+          Aucune publicité ni aucun traceur publicitaire n'est utilisé. La plateforme d'hébergement
+          (Lovable) mesure la fréquentation du site de façon globale, depuis le même domaine.
+        </p>
+        <p>
+          Aucune police ni ressource n'est chargée depuis un service tiers. Votre choix de thème
+          jour ou nuit est conservé dans votre navigateur (stockage local), sans cookie et sans
+          transmission.
+        </p>
       </>
     ),
   },
@@ -210,7 +305,9 @@ export function Footer() {
         <div className="sm:col-span-2 md:col-span-1">
           <p className="flex items-center gap-2.5 font-semibold text-foreground">
             <Marque className="h-5 w-5" />
-            <span>Le Fil <span className="font-mono text-primary">IA</span></span>
+            <span>
+              Le Fil <span className="font-mono text-primary">IA</span>
+            </span>
           </p>
           <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted-foreground">
             La veille IA triée et sourcée, chaque matin, par e-mail ou sur Discord.
@@ -220,24 +317,59 @@ export function Footer() {
           <p className="label-section mb-1">Le service</p>
           {user ? (
             <>
-              <Link to="/compte" search={{}} className={lien}>Synthèse du jour</Link>
-              <Link to="/compte" search={{ vue: "historique" }} className={lien}>Historique</Link>
-              <Link to="/compte" search={{ vue: "articles" }} className={lien}>Mes articles</Link>
-              <Link to="/compte" search={{ vue: "donnees" }} className={lien}>Mes données</Link>
+              <Link to="/compte" search={{}} className={lien}>
+                Synthèse du jour
+              </Link>
+              <Link to="/compte" search={{ vue: "historique" }} className={lien}>
+                Historique
+              </Link>
+              <Link to="/compte" search={{ vue: "articles" }} className={lien}>
+                Mes articles
+              </Link>
+              <Link to="/compte" search={{ vue: "donnees" }} className={lien}>
+                Mes données
+              </Link>
             </>
           ) : (
             <>
-              <button type="button" className={`${lien} text-left`} onClick={() => openLogin("signup")}>Créer un compte</button>
-              <button type="button" className={`${lien} text-left`} onClick={() => openLogin("signin")}>Se connecter</button>
+              <button
+                type="button"
+                className={`${lien} text-left`}
+                onClick={() => openLogin("signup")}
+              >
+                Créer un compte
+              </button>
+              <button
+                type="button"
+                className={`${lien} text-left`}
+                onClick={() => openLogin("signin")}
+              >
+                Se connecter
+              </button>
             </>
           )}
         </nav>
         <nav aria-label="Informations légales" className="flex flex-col gap-2.5">
           <p className="label-section mb-1">Informations</p>
-          <button type="button" className={`${lien} text-left`} onClick={() => setDoc("mentions")}>Mentions légales</button>
-          <button type="button" className={`${lien} text-left`} onClick={() => setDoc("confidentialite")}>Confidentialité</button>
-          <button type="button" className={`${lien} text-left`} onClick={() => setDoc("cookies")}>Cookies</button>
-          <a href="https://github.com/gab-rln-eni/intel-wire-daily" target="_blank" rel="noopener noreferrer" className={lien}>
+          <button type="button" className={`${lien} text-left`} onClick={() => setDoc("mentions")}>
+            Mentions légales
+          </button>
+          <button
+            type="button"
+            className={`${lien} text-left`}
+            onClick={() => setDoc("confidentialite")}
+          >
+            Confidentialité
+          </button>
+          <button type="button" className={`${lien} text-left`} onClick={() => setDoc("cookies")}>
+            Cookies
+          </button>
+          <a
+            href="https://github.com/gab-rln-eni/intel-wire-daily"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={lien}
+          >
             Code source ↗<span className="sr-only"> (nouvel onglet)</span>
           </a>
         </nav>
@@ -255,8 +387,12 @@ export function Footer() {
               <DialogHeader>
                 <DialogTitle>{DOCS[doc].title}</DialogTitle>
               </DialogHeader>
-              <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">{DOCS[doc].body}</div>
-              <p className="text-xs text-muted-foreground">Cadre indicatif, non validé juridiquement.</p>
+              <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
+                {DOCS[doc].body}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Cadre indicatif, non validé juridiquement.
+              </p>
             </>
           )}
         </DialogContent>

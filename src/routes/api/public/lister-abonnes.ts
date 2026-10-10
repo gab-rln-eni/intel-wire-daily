@@ -10,13 +10,18 @@ export const Route = createFileRoute("/api/public/lister-abonnes")({
       GET: async ({ request }) => {
         if (!verifierSecret(request)) return json({ error: "Non autorisé" }, 401);
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const { data: profils, error } = await supabaseAdmin.from("profiles").select("id, canal, rubriques");
+        const { data: profils, error } = await supabaseAdmin
+          .from("profiles")
+          .select("id, canal, rubriques");
         if (error) return json({ error: "Lecture impossible" }, 500);
         // Tous les comptes, page par page (au-delà de 1 000 comptes, une seule page en laissait passer)
         const comptes = new Map<string, string>();
         const maintenant = Date.now();
         for (let page = 1; page <= 50; page++) {
-          const { data, error: e2 } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 1000 });
+          const { data, error: e2 } = await supabaseAdmin.auth.admin.listUsers({
+            page,
+            perPage: 1000,
+          });
           if (e2) return json({ error: "Lecture impossible" }, 500);
           for (const u of data.users) {
             const b = (u as { banned_until?: string | null }).banned_until;
@@ -29,7 +34,11 @@ export const Route = createFileRoute("/api/public/lister-abonnes")({
         let equipe = new Set<string>();
         if (modeTest) {
           const { data: r } = await supabaseAdmin.from("user_roles").select("user_id, role");
-          equipe = new Set((r ?? []).filter((x) => ["admin", "veilleur"].includes(String(x.role))).map((x) => x.user_id));
+          equipe = new Set(
+            (r ?? [])
+              .filter((x) => ["admin", "veilleur"].includes(String(x.role)))
+              .map((x) => x.user_id),
+          );
         }
         const abonnes = (profils ?? [])
           .filter((p) => comptes.has(p.id) && (!modeTest || equipe.has(p.id)))

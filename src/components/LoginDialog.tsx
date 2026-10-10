@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,8 +16,10 @@ import { useAuth } from "@/lib/auth";
 /** ACC-08 : messages d'inscription en français (les messages bruts du service sont en anglais). */
 function erreurInscription(m: string) {
   if (/at least|password/i.test(m)) return "Le mot de passe doit contenir au moins 8 caractères.";
-  if (/already registered|already exists/i.test(m)) return "Un compte existe déjà avec cette adresse : connectez-vous.";
-  if (/rate limit|too many/i.test(m)) return "Trop de tentatives : réessayez dans quelques minutes.";
+  if (/already registered|already exists/i.test(m))
+    return "Un compte existe déjà avec cette adresse : connectez-vous.";
+  if (/rate limit|too many/i.test(m))
+    return "Trop de tentatives : réessayez dans quelques minutes.";
   if (/invalid|validate email/i.test(m)) return "Adresse email invalide.";
   return "Création du compte impossible. Réessayez.";
 }
@@ -35,7 +43,9 @@ export function LoginDialog() {
 
   const google = async () => {
     setErr(null);
-    const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
+    const r = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin,
+    });
     if (r.error) setErr("La connexion Google a échoué. Réessayez.");
   };
 
@@ -51,7 +61,10 @@ export function LoginDialog() {
         options: { emailRedirectTo: window.location.origin + "/compte" },
       });
       if (error) setErr(erreurInscription(error.message));
-      else setMsg("Compte créé. Confirmez votre adresse via le lien reçu par email, puis connectez-vous.");
+      else
+        setMsg(
+          "Compte créé. Confirmez votre adresse via le lien reçu par email, puis connectez-vous.",
+        );
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error)
@@ -73,9 +86,14 @@ export function LoginDialog() {
       return;
     }
     setBusy(true);
-    await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: window.location.origin + "/compte" } });
+    await supabase.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: false, emailRedirectTo: window.location.origin + "/compte" },
+    });
     setBusy(false);
-    setMsg("Si un compte existe pour cette adresse, un lien de connexion vient de lui être envoyé. Pensez à vérifier les indésirables.");
+    setMsg(
+      "Si un compte existe pour cette adresse, un lien de connexion vient de lui être envoyé. Pensez à vérifier les indésirables.",
+    );
   };
 
   return (
@@ -96,7 +114,14 @@ export function LoginDialog() {
         <form onSubmit={submit} className="space-y-3">
           <div className="space-y-1.5">
             <Label htmlFor="login-email">Email</Label>
-            <Input id="login-email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Input
+              id="login-email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="login-password">Mot de passe</Label>
@@ -110,22 +135,40 @@ export function LoginDialog() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
-            {mode === "signup" && <p id="login-password-aide" className="text-xs text-muted-foreground">8 caractères au moins.</p>}
+            {mode === "signup" && (
+              <p id="login-password-aide" className="text-xs text-muted-foreground">
+                8 caractères au moins.
+              </p>
+            )}
           </div>
-          {err && <p role="alert" className="text-sm text-destructive">{err}</p>}
-          {msg && <p role="status" className="text-sm text-primary">{msg}</p>}
+          {err && (
+            <p role="alert" className="text-sm text-destructive">
+              {err}
+            </p>
+          )}
+          {msg && (
+            <p role="status" className="text-sm text-primary">
+              {msg}
+            </p>
+          )}
           <Button type="submit" className="w-full" disabled={busy}>
             {mode === "signup" ? "Créer mon compte" : "Se connecter"}
           </Button>
           {mode === "signin" && (
-            <button type="button" className="link-accent text-sm" onClick={lienConnexion} disabled={busy}>
+            <button
+              type="button"
+              className="link-accent text-sm"
+              onClick={lienConnexion}
+              disabled={busy}
+            >
               Mot de passe oublié ? Recevoir un lien de connexion
             </button>
           )}
           {mode === "signup" && (
             <p className="text-xs leading-relaxed text-muted-foreground">
-              Votre adresse sert à votre compte et, si vous le choisissez, à l'envoi quotidien de la synthèse. Vous pouvez changer de canal,
-              exporter ou supprimer vos données à tout moment depuis Mon compte. Détail : page Confidentialité, en bas de chaque page.
+              Votre adresse sert à votre compte et, si vous le choisissez, à l'envoi quotidien de la
+              synthèse. Vous pouvez changer de canal, exporter ou supprimer vos données à tout
+              moment depuis Mon compte. Détail : page Confidentialité, en bas de chaque page.
             </p>
           )}
         </form>

@@ -53,7 +53,11 @@ function antiCadrage(request: Request, response: Response): Response {
     const headers = new Headers(response.headers);
     headers.set("X-Frame-Options", "DENY");
     headers.set("Content-Security-Policy", "frame-ancestors 'none'");
-    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
   } catch {
     return response;
   }

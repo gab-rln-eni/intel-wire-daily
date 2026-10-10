@@ -28,7 +28,9 @@ type Lecture = {
     order: (k: string, o: object) => Promise<{ data: unknown[] | null }>;
   };
   upsert: (v: object[], o: object) => Promise<{ error: unknown }>;
-  delete: () => { eq: (k: string, v: string) => { in: (k: string, v: string[]) => Promise<{ error: unknown }> } };
+  delete: () => {
+    eq: (k: string, v: string) => { in: (k: string, v: string[]) => Promise<{ error: unknown }> };
+  };
 };
 const t = (nom: string) => (supabase.from as unknown as (n: string) => Lecture).bind(supabase)(nom);
 
@@ -86,7 +88,9 @@ export function useFavoris(userId: string | undefined) {
     enabled: !!userId,
     queryFn: async () => {
       const { data } = await t("favoris")
-        .select("id, lien, titre, resume, source, rubrique, date_veille, sauve_le, lien_etat, verifie_le")
+        .select(
+          "id, lien, titre, resume, source, rubrique, date_veille, sauve_le, lien_etat, verifie_le",
+        )
         .order("sauve_le", { ascending: false });
       return (data ?? []) as Favori[];
     },
@@ -99,7 +103,11 @@ export function useRubriquesSuivies(userId: string | undefined) {
     queryKey: ["rubriques", userId],
     enabled: !!userId,
     queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("rubriques").eq("id", userId!).maybeSingle();
+      const { data } = await supabase
+        .from("profiles")
+        .select("rubriques")
+        .eq("id", userId!)
+        .maybeSingle();
       return new Set<string>(data?.rubriques ?? []);
     },
   });
@@ -131,7 +139,10 @@ export function useActionsLecture(userId: string) {
     marquerLus: async (liens: string[]) => {
       if (!liens.length) return;
       majLus((s) => liens.forEach((l) => s.add(l)));
-      await t("lectures").upsert(liens.map((lien) => ({ user_id: userId, lien })), { onConflict: "user_id,lien", ignoreDuplicates: true });
+      await t("lectures").upsert(
+        liens.map((lien) => ({ user_id: userId, lien })),
+        { onConflict: "user_id,lien", ignoreDuplicates: true },
+      );
       relire();
     },
     marquerNonLu: async (lien: string) => {
