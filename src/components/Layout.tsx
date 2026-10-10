@@ -176,9 +176,10 @@ const DOCS: Record<Exclude<Doc, null>, { title: string; body: ReactNode }> = {
       <>
         <p><strong>Données traitées :</strong> adresse email, identité du compte Google (si vous l'utilisez pour vous connecter), canal de réception choisi, rubriques suivies, articles marqués comme lus et articles sauvegardés (avec l'état de leur lien). Si vous choisissez Discord, vous rejoignez le salon public #synthese-du-jour : Discord traite alors votre compte selon ses propres conditions.</p>
         <p><strong>Finalité :</strong> envoi et consultation de la synthèse de veille, suivi de votre lecture et de vos articles sauvegardés.</p>
+        <p><strong>Envoi par email :</strong> si vous choisissez l'email, la synthèse vous est envoyée chaque matin depuis le compte Gmail du responsable du service (Google assure l'acheminement). Chaque email a un seul destinataire : votre adresse n'est visible d'aucun autre abonné.</p>
         <p><strong>Conservation :</strong> compte et préférences jusqu'à la suppression du compte (effacement immédiat) ; compte jamais confirmé effacé après 30 jours ; date de votre dernier choix de réception gardée comme preuve de consentement ; articles marqués comme lus 90 jours ; articles sauvegardés jusqu'à leur retrait ou la suppression du compte ; synthèses 12 mois ; demandes de veille internes 90 jours ; journal des actions de l'équipe d'administration 12 mois. Sur Discord, les messages des salons #assistant et #alertes sont effacés au delà de 30 jours.</p>
         <p><strong>Vérification des liens :</strong> pour signaler un lien rompu, l'app interroge une fois par jour au plus l'adresse de chaque article sauvegardé ; seule l'adresse publique de l'article est appelée, sans aucune donnée vous concernant.</p>
-        <p><strong>Vos droits :</strong> accès, portabilité, rectification et suppression. Depuis Mon compte, Mes données : téléchargez une copie de vos données ou supprimez votre compte à tout moment.</p>
+        <p><strong>Vos droits :</strong> accès, portabilité, rectification, suppression et opposition (Mon compte, Réception : « Ne rien recevoir »). Depuis Mon compte, Mes données : téléchargez une copie de vos données ou supprimez votre compte à tout moment.</p>
       </>
     ),
   },

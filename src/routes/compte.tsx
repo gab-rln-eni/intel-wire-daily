@@ -437,6 +437,8 @@ function MesArticles({ userId }: { userId: string }) {
   );
 }
 
+type Canal = "email" | "discord" | "aucun";
+
 function Preferences({ userId }: { userId: string }) {
   const qc = useQueryClient();
   const { data: profile } = useQuery({
@@ -447,14 +449,18 @@ function Preferences({ userId }: { userId: string }) {
       return data;
     },
   });
-  const [canal, setCanal] = useState<"email" | "discord">("email");
+  const { data: adresse } = useQuery({
+    queryKey: ["adresse", userId],
+    queryFn: async () => (await supabase.auth.getUser()).data.user?.email ?? null,
+  });
+  const [canal, setCanal] = useState<Canal>("email");
   const [rubriques, setRubriques] = useState<string[]>([...RUBRIQUES]);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [msgR, setMsgR] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     if (profile) {
-      setCanal(profile.canal === "discord" ? "discord" : "email");
+      setCanal(profile.canal === "discord" || profile.canal === "aucun" ? profile.canal : "email");
       setRubriques(profile.rubriques);
     }
   }, [profile]);
@@ -503,7 +509,7 @@ function Preferences({ userId }: { userId: string }) {
         <form onSubmit={saveReception} className="space-y-4">
           <fieldset>
             <legend className="sr-only">Canal</legend>
-            <RadioGroup value={canal} onValueChange={(v) => setCanal(v as "email" | "discord")}>
+            <RadioGroup value={canal} onValueChange={(v) => setCanal(v as Canal)}>
               <div className="flex items-center gap-2">
                 <RadioGroupItem value="email" id="canal-email" />
                 <Label htmlFor="canal-email">Email</Label>
@@ -512,11 +518,24 @@ function Preferences({ userId }: { userId: string }) {
                 <RadioGroupItem value="discord" id="canal-discord" />
                 <Label htmlFor="canal-discord">Discord</Label>
               </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="aucun" id="canal-aucun" />
+                <Label htmlFor="canal-aucun">Ne rien recevoir (consulter sur le site)</Label>
+              </div>
             </RadioGroup>
           </fieldset>
+          {canal === "email" && (
+            <p className="text-sm text-muted-foreground">
+              Chaque matin, une fois la veille publiée, vous recevez un email avec les sujets de vos rubriques
+              {adresse ? <> à l'adresse <strong className="text-foreground">{adresse}</strong></> : null}. Expéditeur : Le Fil IA.
+            </p>
+          )}
+          {canal === "aucun" && (
+            <p className="text-sm text-muted-foreground">Aucun envoi : la synthèse reste consultable chaque jour dans cet espace.</p>
+          )}
           {canal === "discord" && (
             <div className="space-y-1.5 text-sm text-muted-foreground">
-              <p>Chaque matin, la synthèse est publiée dans le salon #synthese-du-jour du serveur Discord Le Fil IA (lecture seule).</p>
+              <p>Chaque matin, la synthèse est publiée dans le salon #synthese-du-jour du serveur Discord Le Fil IA (lecture seule), toutes rubriques confondues.</p>
               {INVITATION_DISCORD && (
                 <a href={INVITATION_DISCORD} target="_blank" rel="noopener noreferrer" className="link-accent">
                   Rejoindre le salon #synthese-du-jour ↗<span className="sr-only"> (nouvel onglet)</span>

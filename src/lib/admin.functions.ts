@@ -80,7 +80,7 @@ export type UtilisateurAdmin = {
   suspendu: boolean;
   admin: boolean;
   role: "admin" | "veilleur" | "abonne";
-  canal: "email" | "discord";
+  canal: "email" | "discord" | "aucun";
   nb_rubriques: number;
 };
 
@@ -115,7 +115,7 @@ export const listerUtilisateurs = createServerFn({ method: "GET" })
           suspendu: !!bannedUntil && Date.parse(bannedUntil) > maintenant,
           admin: role === "admin",
           role,
-          canal: prof?.canal === "discord" ? "discord" : "email",
+          canal: prof?.canal === "discord" ? "discord" : prof?.canal === "aucun" ? "aucun" : "email",
           nb_rubriques: prof?.rubriques?.length ?? 0,
         } satisfies UtilisateurAdmin;
       })

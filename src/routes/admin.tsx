@@ -378,7 +378,7 @@ function Apercu({ syntheses, derniere, duJour, utilisateurs, enAttente, suspendu
             <li key={u.id} className="flex items-center justify-between gap-4 px-4 py-2.5">
               <span className="truncate font-mono text-xs text-foreground">{u.email}</span>
               <span className="flex shrink-0 items-center gap-4 text-xs text-muted-foreground">
-                <span className="hidden sm:inline">{u.canal === "discord" ? "Discord" : "Email"}</span>
+                <span className="hidden sm:inline">{u.canal === "discord" ? "Discord" : u.canal === "aucun" ? "Aucun envoi" : "Email"}</span>
                 <span>{formatDateTime(u.inscrit_le)}</span>
                 <Statut u={u} />
               </span>
@@ -862,7 +862,7 @@ function GestionAbonnes({ utilisateurs, moi, estAdmin }: { utilisateurs: Utilisa
                     {u.id === moi && <span className="ml-1 text-ink3">(vous)</span>}
                   </p>
                   <p className="mt-0.5 text-xs text-ink3">
-                    Connexion {u.fournisseur === "google" ? "Google" : "email"} | reçoit par {u.canal === "discord" ? "Discord" : "email"} | {u.nb_rubriques} rubrique{u.nb_rubriques > 1 ? "s" : ""}
+                    Connexion {u.fournisseur === "google" ? "Google" : "email"} | {u.canal === "aucun" ? "ne reçoit rien" : `reçoit par ${u.canal === "discord" ? "Discord" : "email"}`} | {u.nb_rubriques} rubrique{u.nb_rubriques > 1 ? "s" : ""}
                   </p>
                 </TableCell>
                 <TableCell className="whitespace-nowrap">{formatDateTime(u.inscrit_le)}</TableCell>
