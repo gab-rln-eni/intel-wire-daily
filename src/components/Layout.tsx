@@ -15,7 +15,7 @@ import { useAuth } from "@/lib/auth";
 import { useNonLus } from "@/lib/lecture";
 
 const navBase =
-  "relative px-2 py-1.5 text-sm transition-colors after:absolute after:inset-x-2 after:-bottom-[13px] after:h-0.5 after:transition-colors whitespace-nowrap";
+  "relative px-2 py-1.5 text-sm transition-colors after:absolute after:inset-x-2 after:-bottom-3 sm:after:-bottom-[13px] after:h-0.5 after:transition-colors whitespace-nowrap";
 const navCls = `${navBase} text-muted-foreground hover:text-foreground after:bg-transparent hover:after:bg-border`;
 const activeCls = { className: `${navBase} font-semibold text-foreground after:bg-primary` };
 
@@ -82,52 +82,54 @@ export function Header() {
           </span>
         </Link>
         {/* Visiteur : pas de liens, le logo ramène à l'accueil */}
-        {user ? (
-          <nav
-            aria-label="Navigation principale"
-            className="order-last -mx-2 -mb-3 flex basis-full items-center gap-0.5 overflow-x-auto pb-3 sm:order-none sm:mx-0 sm:mb-0 sm:flex-1 sm:basis-auto sm:gap-1 sm:overflow-visible sm:pb-0"
-          >
-            <>
-              <Link
-                to="/compte"
-                search={{}}
-                {...item("synthese")}
-                aria-label={
-                  nonLus ? `Synthèse, ${nonLus} non lu${nonLus > 1 ? "s" : ""}` : undefined
-                }
-              >
-                Synthèse
-                {nonLus > 0 && (
-                  <span
-                    aria-hidden="true"
-                    className="ml-1.5 inline-block min-w-5 bg-primary px-1 text-center font-mono text-[0.65rem] leading-[1.15rem] text-primary-foreground tabular-nums"
-                  >
-                    {nonLus}
-                  </span>
-                )}
-              </Link>
-              <Link to="/compte" search={{ vue: "historique" }} {...item("historique")}>
-                Historique
-              </Link>
-              <Link to="/compte" search={{ vue: "articles" }} {...item("articles")}>
-                Mes articles
-              </Link>
-              <Link to="/compte" search={{ vue: "donnees" }} {...item("donnees")}>
-                Mes données
-              </Link>
-            </>
-            {isStaff && (
-              <Link to="/admin" className={navCls} activeProps={activeCls}>
-                Admin
-              </Link>
-            )}
-          </nav>
-        ) : (
-          <div className="flex-1" />
-        )}
-        {/* Sur téléphone, le sélecteur de thème passe sur la ligne des liens */}
-        <div className="order-last ml-auto sm:order-none sm:ml-0">
-          <ThemeSwitch />
+        {/* ACC-06 : sur téléphone, navigation et thème partagent la deuxième ligne (deux lignes au lieu de trois) */}
+        <div className="order-last flex min-w-0 basis-full items-center gap-2 sm:order-none sm:flex-1 sm:basis-auto sm:gap-5">
+          {user ? (
+            <nav
+              aria-label="Navigation principale"
+              className="-mx-2 -mb-3 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto pb-3 [scrollbar-width:none] sm:mx-0 sm:mb-0 sm:gap-1 sm:overflow-visible sm:pb-0 [&::-webkit-scrollbar]:hidden"
+            >
+              <>
+                <Link
+                  to="/compte"
+                  search={{}}
+                  {...item("synthese")}
+                  aria-label={
+                    nonLus ? `Synthèse, ${nonLus} non lu${nonLus > 1 ? "s" : ""}` : undefined
+                  }
+                >
+                  Synthèse
+                  {nonLus > 0 && (
+                    <span
+                      aria-hidden="true"
+                      className="ml-1.5 inline-block min-w-5 bg-primary px-1 text-center font-mono text-[0.65rem] leading-[1.15rem] text-primary-foreground tabular-nums"
+                    >
+                      {nonLus}
+                    </span>
+                  )}
+                </Link>
+                <Link to="/compte" search={{ vue: "historique" }} {...item("historique")}>
+                  Historique
+                </Link>
+                <Link to="/compte" search={{ vue: "articles" }} {...item("articles")}>
+                  Mes articles
+                </Link>
+                <Link to="/compte" search={{ vue: "donnees" }} {...item("donnees")}>
+                  Mes données
+                </Link>
+              </>
+              {isStaff && (
+                <Link to="/admin" className={navCls} activeProps={activeCls}>
+                  Admin
+                </Link>
+              )}
+            </nav>
+          ) : (
+            <div className="flex-1" />
+          )}
+          <div className="ml-auto shrink-0 sm:ml-0">
+            <ThemeSwitch />
+          </div>
         </div>
         <div className="ml-auto flex items-center gap-2 sm:ml-0">
           {user ? (
@@ -175,7 +177,7 @@ export function Header() {
   );
 }
 
-type Doc = "mentions" | "confidentialite" | "cookies" | null;
+type Doc = "mentions" | "confidentialite" | "cookies" | "accessibilite" | null;
 
 // Contact de l'éditeur (CONF-01, CONF-02), aussi expéditeur des emails de la synthèse
 const CONTACT = "gabriel.roulon@gmail.com";
@@ -273,6 +275,30 @@ const DOCS: Record<Exclude<Doc, null>, { title: string; body: ReactNode }> = {
       </>
     ),
   },
+  accessibilite: {
+    title: "Accessibilité",
+    body: (
+      <>
+        <p>
+          <strong>État :</strong> conformité non évaluée. Aucun audit d'accessibilité (RGAA) n'a été
+          réalisé ; ce service personnel non commercial n'est pas soumis à l'obligation de
+          déclaration.
+        </p>
+        <p>
+          <strong>Objectif :</strong> les règles WCAG 2.1, niveau AA. Contrôles automatiques
+          (axe-core) sans anomalie sur les pages principales, en thème jour et nuit, au 10 octobre
+          2026. Un contrôle automatique ne remplace pas un audit.
+        </p>
+        <p>
+          <strong>Signaler un problème :</strong>{" "}
+          <a href={`mailto:${CONTACT}`} className="link-accent">
+            {CONTACT}
+          </a>
+          . Nous vous répondrons et chercherons une solution.
+        </p>
+      </>
+    ),
+  },
   cookies: {
     title: "Cookies",
     body: (
@@ -298,7 +324,7 @@ const DOCS: Record<Exclude<Doc, null>, { title: string; body: ReactNode }> = {
 export function Footer() {
   const [doc, setDoc] = useState<Doc>(null);
   const { user, openLogin } = useAuth();
-  const lien = "w-fit text-sm text-muted-foreground transition-colors hover:text-foreground";
+  const lien = "w-fit py-0.5 text-sm text-muted-foreground transition-colors hover:text-foreground";
   return (
     <footer className="mt-20 border-t border-border">
       <div className="mx-auto grid max-w-5xl gap-10 px-4 py-10 sm:grid-cols-2 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)]">
@@ -363,6 +389,13 @@ export function Footer() {
           </button>
           <button type="button" className={`${lien} text-left`} onClick={() => setDoc("cookies")}>
             Cookies
+          </button>
+          <button
+            type="button"
+            className={`${lien} text-left`}
+            onClick={() => setDoc("accessibilite")}
+          >
+            Accessibilité
           </button>
           <a
             href="https://github.com/gab-rln-eni/intel-wire-daily"

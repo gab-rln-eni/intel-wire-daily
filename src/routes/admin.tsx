@@ -350,7 +350,14 @@ function Admin() {
             )}
             {section === "sources" && <Sources donnees={src} estAdmin={estAdmin} />}
             {section === "abonnes" && (
-              <GestionAbonnes utilisateurs={utilisateurs} moi={userId} estAdmin={estAdmin} />
+              <>
+                {liste?.tronque && (
+                  <p role="status" className="mb-3 text-sm text-muted-foreground">
+                    Liste limitée aux 1 000 premiers comptes (MNT-10).
+                  </p>
+                )}
+                <GestionAbonnes utilisateurs={utilisateurs} moi={userId} estAdmin={estAdmin} />
+              </>
             )}
             {section === "journal" && <JournalAudit estAdmin={estAdmin} />}
             {section === "demandes" && <Demandes demandes={demandes} n8n={n8n} />}
@@ -518,7 +525,11 @@ function Apercu({
           <h2 id="inscriptions" className="label-section">
             Dernières inscriptions
           </h2>
-          <Link to="/admin" search={{ section: "abonnes" }} className="link-accent text-xs">
+          <Link
+            to="/admin"
+            search={{ section: "abonnes" }}
+            className="link-accent inline-flex min-h-6 items-center text-xs"
+          >
             Gérer les abonnés →
           </Link>
         </div>

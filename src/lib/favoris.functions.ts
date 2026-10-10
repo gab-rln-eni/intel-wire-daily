@@ -35,7 +35,7 @@ const lienValide = (d: { lien: string }) => {
 /** Sauvegarder un article : seulement un sujet publié (copie côté serveur), sans doublon, 30 au plus par compte. */
 export const sauverFavori = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(lienValide)
+  .validator(lienValide)
   .handler(async ({ context, data }) => {
     const sb = await admin();
     const { data: s } = await table(sb, "sujets")

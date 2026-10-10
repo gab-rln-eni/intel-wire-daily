@@ -105,43 +105,48 @@ export type UtilisateurAdmin = {
 
 export const listerUtilisateurs = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<{ moi: Role; utilisateurs: UtilisateurAdmin[] }> => {
-    const q = await exiger(context.userId, ["admin", "veilleur"], "Lister les utilisateurs");
-    const [{ data: users, error }, { data: profils }, { data: roles }] = await Promise.all([
-      q.sb.auth.admin.listUsers({ page: 1, perPage: 1000 }),
-      q.sb.from("profiles").select("id, canal, rubriques"),
-      q.sb.from("user_roles").select("user_id, role"),
-    ]);
-    if (error) throw new Error("Lecture des utilisateurs impossible");
-    const p = new Map((profils ?? []).map((x) => [x.id, x]));
-    const roleDeU = (id: string) => {
-      const r = (roles ?? []).filter((x) => x.user_id === id).map((x) => String(x.role));
-      return r.includes("admin") ? "admin" : r.includes("veilleur") ? "veilleur" : "abonne";
-    };
-    const maintenant = Date.now();
-    const utilisateurs = users.users
-      .map((u) => {
-        const prof = p.get(u.id);
-        const bannedUntil = (u as { banned_until?: string | null }).banned_until;
-        const role = roleDeU(u.id);
-        return {
-          id: u.id,
-          email: q.role === "admin" ? (u.email ?? "") : masquer(u.email ?? ""),
-          fournisseur: String(u.app_metadata?.["provider"] ?? "email"),
-          inscrit_le: u.created_at,
-          derniere_connexion: u.last_sign_in_at ?? null,
-          confirme: !!u.email_confirmed_at,
-          suspendu: !!bannedUntil && Date.parse(bannedUntil) > maintenant,
-          admin: role === "admin",
-          role,
-          canal:
-            prof?.canal === "discord" ? "discord" : prof?.canal === "aucun" ? "aucun" : "email",
-          nb_rubriques: prof?.rubriques?.length ?? 0,
-        } satisfies UtilisateurAdmin;
-      })
-      .sort((a, b) => Date.parse(b.inscrit_le) - Date.parse(a.inscrit_le));
-    return { moi: q.role, utilisateurs };
-  });
+  .handler(
+    async ({
+      context,
+    }): Promise<{ moi: Role; utilisateurs: UtilisateurAdmin[]; tronque: boolean }> => {
+      const q = await exiger(context.userId, ["admin", "veilleur"], "Lister les utilisateurs");
+      const [{ data: users, error }, { data: profils }, { data: roles }] = await Promise.all([
+        // MNT-10 : première page seulement, 1 000 comptes au plus (suffisant, choix G_R) ; la console signale si la limite est atteinte
+        q.sb.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+        q.sb.from("profiles").select("id, canal, rubriques"),
+        q.sb.from("user_roles").select("user_id, role"),
+      ]);
+      if (error) throw new Error("Lecture des utilisateurs impossible");
+      const p = new Map((profils ?? []).map((x) => [x.id, x]));
+      const roleDeU = (id: string) => {
+        const r = (roles ?? []).filter((x) => x.user_id === id).map((x) => String(x.role));
+        return r.includes("admin") ? "admin" : r.includes("veilleur") ? "veilleur" : "abonne";
+      };
+      const maintenant = Date.now();
+      const utilisateurs = users.users
+        .map((u) => {
+          const prof = p.get(u.id);
+          const bannedUntil = (u as { banned_until?: string | null }).banned_until;
+          const role = roleDeU(u.id);
+          return {
+            id: u.id,
+            email: q.role === "admin" ? (u.email ?? "") : masquer(u.email ?? ""),
+            fournisseur: String(u.app_metadata?.["provider"] ?? "email"),
+            inscrit_le: u.created_at,
+            derniere_connexion: u.last_sign_in_at ?? null,
+            confirme: !!u.email_confirmed_at,
+            suspendu: !!bannedUntil && Date.parse(bannedUntil) > maintenant,
+            admin: role === "admin",
+            role,
+            canal:
+              prof?.canal === "discord" ? "discord" : prof?.canal === "aucun" ? "aucun" : "email",
+            nb_rubriques: prof?.rubriques?.length ?? 0,
+          } satisfies UtilisateurAdmin;
+        })
+        .sort((a, b) => Date.parse(b.inscrit_le) - Date.parse(a.inscrit_le));
+      return { moi: q.role, utilisateurs, tronque: users.users.length >= 1000 };
+    },
+  );
 
 const avecId = (d: { id: string }) => ({ id: String(d?.id ?? "") });
 
@@ -168,7 +173,7 @@ async function agirSurCompte(
 
 export const suspendreUtilisateur = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(avecId)
+  .validator(avecId)
   .handler(({ context, data }) =>
     agirSurCompte(context.userId, data.id, "Suspendre", (sb) =>
       sb.auth.admin.updateUserById(data.id, { ban_duration: DUREE_SUSPENSION }),
@@ -177,7 +182,7 @@ export const suspendreUtilisateur = createServerFn({ method: "POST" })
 
 export const reactiverUtilisateur = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(avecId)
+  .validator(avecId)
   .handler(({ context, data }) =>
     agirSurCompte(context.userId, data.id, "Réactiver", (sb) =>
       sb.auth.admin.updateUserById(data.id, { ban_duration: "none" }),
@@ -186,7 +191,7 @@ export const reactiverUtilisateur = createServerFn({ method: "POST" })
 
 export const supprimerUtilisateur = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(avecId)
+  .validator(avecId)
   .handler(({ context, data }) =>
     agirSurCompte(context.userId, data.id, "Supprimer", (sb) => sb.auth.admin.deleteUser(data.id)),
   );
@@ -194,7 +199,7 @@ export const supprimerUtilisateur = createServerFn({ method: "POST" })
 /** Nommer ou retirer un veilleur : propriétaire seul, jamais sur soi ni sur un admin. */
 export const definirVeilleur = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { id: string; veilleur: boolean }) => ({
+  .validator((d: { id: string; veilleur: boolean }) => ({
     id: String(d?.id ?? ""),
     veilleur: d?.veilleur === true,
   }))
@@ -237,7 +242,7 @@ export const lancerVeille = createServerFn({ method: "POST" })
 /** Mode test (D-WEB-16) : propriétaire seul ; tant qu'il est actif, la liste des abonnés transmise à n8n ne contient que l'équipe. */
 export const basculerModeTest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { actif: boolean }) => ({ actif: d?.actif === true }))
+  .validator((d: { actif: boolean }) => ({ actif: d?.actif === true }))
   .handler(async ({ context, data }) => {
     const q = await exiger(
       context.userId,
@@ -338,7 +343,7 @@ async function controler(sb: SB, a: Required<ProposeSource>) {
 
 export const proposerActionSource = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(nettoyer)
+  .validator(nettoyer)
   .handler(async ({ context, data }) => {
     const intitule = `Source : ${data.action || "action"}`;
     const q = await exiger(context.userId, ["admin", "veilleur"], intitule);
@@ -376,7 +381,7 @@ export const proposerActionSource = createServerFn({ method: "POST" })
 /** Validation par l'admin d'une action proposée par un veilleur : transmise à n8n, ou annulée. */
 export const validerActionSource = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { id: string; accepter: boolean }) => ({
+  .validator((d: { id: string; accepter: boolean }) => ({
     id: String(d?.id ?? ""),
     accepter: d?.accepter === true,
   }))
@@ -437,7 +442,7 @@ export const lancerMaintenance = createServerFn({ method: "POST" })
 /** Purger le journal au delà de N jours (90 au minimum, contrôlé aussi en base) ; la purge laisse une trace indélébile. */
 export const purgerJournal = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { jours: number }) => ({ jours: Math.trunc(Number(d?.jours)) }))
+  .validator((d: { jours: number }) => ({ jours: Math.trunc(Number(d?.jours)) }))
   .handler(async ({ context, data }) => {
     const q = await exiger(context.userId, ["admin"], "Purger le journal");
     if (![90, 180, 365].includes(data.jours))
@@ -455,7 +460,7 @@ export const purgerJournal = createServerFn({ method: "POST" })
 /** Demander le nettoyage d'un salon Discord : n8n l'applique avec son bot (liste fermée de salons et de portées). */
 export const demanderNettoyage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { salon: string; portee: string }) => ({
+  .validator((d: { salon: string; portee: string }) => ({
     salon: d?.salon === "assistant" ? "assistant" : d?.salon === "alertes" ? "alertes" : "",
     portee: d?.portee === "tout" ? "tout" : d?.portee === "30j" ? "30j" : "",
   }))

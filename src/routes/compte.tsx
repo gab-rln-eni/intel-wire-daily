@@ -410,7 +410,7 @@ function Synthese({
               {aLire.length > 1 && (
                 <button
                   type="button"
-                  className="link-accent font-medium"
+                  className="link-accent inline-flex min-h-6 items-center font-medium"
                   onClick={() => garde(() => actions.marquerLus(aLire.map((s) => s.lien)))}
                 >
                   Tout marquer comme lu
@@ -451,7 +451,7 @@ function Synthese({
                   <div className="flex justify-end pb-2">
                     <button
                       type="button"
-                      className="link-accent text-xs font-medium"
+                      className="link-accent inline-flex min-h-6 items-center text-xs font-medium"
                       onClick={() => garde(() => actions.marquerNonLus(dejaLus.map((s) => s.lien)))}
                     >
                       Tout marquer comme non lu
