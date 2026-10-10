@@ -920,7 +920,8 @@ function Demandes({ demandes, n8n }: { demandes: Demande[]; n8n: EtatN8n }) {
           <p className="leading-relaxed">
             <b className="font-semibold text-foreground">n8n : {n8n.texte}.</b>{" "}
             <span className="text-muted-foreground">
-              La file est relevée toutes les 2 minutes, de 6 h à 22 h, quand le serveur n8n est en marche.
+              La file est relevée toutes les 2 minutes, de 6 h à 22 h, quand le serveur n8n est en
+              marche.
             </span>
           </p>
         </div>
