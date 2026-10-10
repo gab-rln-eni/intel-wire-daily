@@ -44,12 +44,27 @@ function isH3SwallowedErrorBody(body: string): boolean {
   }
 }
 
+// CYB-01 (D-AUD-06) : le site publié refuse d'être affiché dans le cadre d'un autre site (détournement de clic).
+// Domaine de production seulement : l'aperçu de l'éditeur Lovable s'affiche, lui, dans un cadre.
+const PRODUCTION = "le-fil-ia.lovable.app";
+function antiCadrage(request: Request, response: Response): Response {
+  try {
+    if (new URL(request.url).hostname !== PRODUCTION) return response;
+    const headers = new Headers(response.headers);
+    headers.set("X-Frame-Options", "DENY");
+    headers.set("Content-Security-Policy", "frame-ancestors 'none'");
+    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+  } catch {
+    return response;
+  }
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      return antiCadrage(request, await normalizeCatastrophicSsrResponse(response));
     } catch (error) {
       console.error(error);
       return new Response(renderErrorPage(), {

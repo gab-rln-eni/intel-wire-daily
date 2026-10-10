@@ -93,10 +93,24 @@ export function useFavoris(userId: string | undefined) {
   });
 }
 
-/** Nombre de non lus de la dernière synthèse, pour l'en-tête. */
+/** Rubriques suivies par l'abonné (FON-02) ; null tant que le profil n'est pas lu. */
+export function useRubriquesSuivies(userId: string | undefined) {
+  return useQuery({
+    queryKey: ["rubriques", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data } = await supabase.from("profiles").select("rubriques").eq("id", userId!).maybeSingle();
+      return new Set<string>(data?.rubriques ?? []);
+    },
+  });
+}
+
+/** Nombre de non lus de la dernière synthèse dans les rubriques suivies, pour l'en-tête. */
 export function useNonLus(userId: string | undefined) {
   const { data: syntheses = [] } = useSyntheses(!!userId);
-  const { data: sujets = [] } = useSujets(userId ? syntheses[0]?.id : undefined);
+  const { data: tous = [] } = useSujets(userId ? syntheses[0]?.id : undefined);
+  const { data: suivies } = useRubriquesSuivies(userId);
+  const sujets = suivies ? tous.filter((s) => suivies.has(s.rubrique)) : tous;
   const liens = sujets.map((s) => s.lien);
   const { data: lus } = useLus(userId, liens);
   return lus ? liens.filter((l) => !lus.has(l)).length : 0;

@@ -123,10 +123,10 @@ function Index() {
         </div>
         <div className="grille-filets sm:grid-cols-2">
           {[
-            ["01", "Deux minutes au lieu d'une heure", "Une quinzaine de sujets par jour au plus, chacun résumé en deux phrases. Vous savez ce qui compte, sans parcourir vingt sites."],
+            ["01", "Deux minutes au lieu d'une heure", "Quinze à trente sujets par jour, chacun résumé en deux phrases. Vous savez ce qui compte, sans parcourir vingt sites."],
             ["02", "Des sources qui font autorité", "OpenAI, Google DeepMind, Mistral AI, Hugging Face, la CNIL, la lettre de l'AI Act et des médias tech de référence, en français et en anglais."],
             ["03", "Tout est vérifiable", "Chaque sujet cite sa source et mène à l'article original. Les liens viennent de la collecte, jamais de l'IA : rien n'est inventé."],
-            ["04", "Seulement ce qui vous concerne", "Six rubriques, de la réglementation à la recherche. Choisissez les vôtres et filtrez la synthèse en un clic."],
+            ["04", "Seulement ce qui vous concerne", "Six rubriques, de la réglementation à la recherche. Choisissez les vôtres : votre synthèse et vos emails s'y limitent."],
           ].map(([n, t, d], i) => (
             <div key={n} className="bg-card transition-shadow duration-200 hover:filet-actif">
               <Apparition delai={i * 100} className="flex h-full gap-4 p-5">

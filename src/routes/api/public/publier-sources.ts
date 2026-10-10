@@ -17,6 +17,7 @@ export const Route = createFileRoute("/api/public/publier-sources")({
         } catch {
           return json({ error: "JSON invalide" }, 400);
         }
+        if (!body || typeof body !== "object" || Array.isArray(body)) return json({ error: "JSON invalide" }, 400);
         const brut = body["sources"];
         if (!Array.isArray(brut) || brut.length === 0) return json({ error: "sources manquantes" }, 400);
         if (brut.length > 500) return json({ error: "trop de sources" }, 400);

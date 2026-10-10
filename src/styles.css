@@ -66,7 +66,7 @@
   --input: #DCD8CE;
   --ring: #B24229;
   --line2: #E7E3DA;
-  --ink3: #6E737B;
+  --ink3: #5F646B; /* ACC-01 : 5,23:1 sur le fond, 4,96:1 sur les cartes */
   --accent-soft: rgba(178, 66, 41, 0.13);
   color-scheme: light;
 }
@@ -94,7 +94,7 @@
   --input: #272C33;
   --ring: #D9603F;
   --line2: #1E2228;
-  --ink3: #7D848D;
+  --ink3: #8A9199; /* ACC-01 : 5,25:1 */
   --accent-soft: rgba(217, 96, 63, 0.18);
   color-scheme: dark;
 }

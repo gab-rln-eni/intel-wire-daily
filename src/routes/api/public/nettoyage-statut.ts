@@ -13,6 +13,7 @@ export const Route = createFileRoute("/api/public/nettoyage-statut")({
         } catch {
           return json({ error: "JSON invalide" }, 400);
         }
+        if (!body || typeof body !== "object" || Array.isArray(body)) return json({ error: "JSON invalide" }, 400);
         const id = String(body["id"] ?? "");
         if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "id invalide" }, 400);
         const supprimes = Math.max(0, Math.min(1000, Math.trunc(Number(body["supprimes"]) || 0)));

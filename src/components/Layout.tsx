@@ -159,13 +159,16 @@ export function Header() {
 
 type Doc = "mentions" | "confidentialite" | "cookies" | null;
 
+// Contact de l'éditeur (CONF-01, CONF-02), aussi expéditeur des emails de la synthèse
+const CONTACT = "gabriel.roulon@gmail.com";
+
 const DOCS: Record<Exclude<Doc, null>, { title: string; body: ReactNode }> = {
   mentions: {
     title: "Mentions légales",
     body: (
       <>
-        <p><strong>Éditeur :</strong> Le Fil IA, projet de démonstration.</p>
-        <p><strong>Contact :</strong> via le{" "}<a href="https://github.com/gab-rln-eni/intel-wire-daily" target="_blank" rel="noopener noreferrer" className="link-accent">dépôt GitHub du projet<span className="sr-only"> (nouvel onglet)</span></a>.</p>
+        <p><strong>Éditeur :</strong> Le Fil IA, projet personnel non commercial.</p>
+        <p><strong>Contact :</strong> <a href={`mailto:${CONTACT}`} className="link-accent">{CONTACT}</a> (aussi pour exercer vos droits sur vos données). Code source : <a href="https://github.com/gab-rln-eni/intel-wire-daily" target="_blank" rel="noopener noreferrer" className="link-accent">dépôt GitHub du projet<span className="sr-only"> (nouvel onglet)</span></a>.</p>
         <p><strong>Hébergement :</strong> plateforme Lovable (lovable.dev). Société désignée par sa politique de confidentialité : Lovable Labs Sweden AB, Regeringsgatan 25, 111 53 Stockholm, Suède.</p>
       </>
     ),
@@ -174,12 +177,14 @@ const DOCS: Record<Exclude<Doc, null>, { title: string; body: ReactNode }> = {
     title: "Confidentialité",
     body: (
       <>
-        <p><strong>Données traitées :</strong> adresse email, identité du compte Google (si vous l'utilisez pour vous connecter), canal de réception choisi, rubriques suivies, articles marqués comme lus et articles sauvegardés (avec l'état de leur lien). Si vous choisissez Discord, vous rejoignez le salon public #synthese-du-jour : Discord traite alors votre compte selon ses propres conditions.</p>
-        <p><strong>Finalité :</strong> envoi et consultation de la synthèse de veille, suivi de votre lecture et de vos articles sauvegardés.</p>
+        <p><strong>Responsable du traitement :</strong> l'éditeur du Fil IA, joignable à <a href={`mailto:${CONTACT}`} className="link-accent">{CONTACT}</a>.</p>
+        <p><strong>Données traitées :</strong> adresse email, identité du compte Google (si vous l'utilisez pour vous connecter), canal de réception choisi, rubriques suivies, articles marqués comme lus et articles sauvegardés (avec l'état de leur lien). Si vous choisissez Discord, vous rejoignez le salon public #synthese-du-jour : votre pseudonyme Discord y est visible des autres membres, et Discord traite votre compte selon ses propres conditions.</p>
+        <p><strong>Finalité et base légale :</strong> envoi et consultation de la synthèse de veille, suivi de votre lecture et de vos articles sauvegardés. Ces traitements sont nécessaires au service que vous avez demandé en créant votre compte (exécution du service) ; vos choix de canal et de rubriques se modifient à tout moment.</p>
+        <p><strong>Destinataires :</strong> aucune donnée n'est vendue ni cédée. Prestataires techniques : Lovable (hébergement du site et de la base, avec ses propres sous-traitants d'infrastructure), Google (connexion avec Google, acheminement des emails), Discord (si vous choisissez ce canal). Certains peuvent traiter des données hors de l'Union européenne, dans le cadre de leurs propres garanties contractuelles.</p>
         <p><strong>Envoi par email :</strong> si vous choisissez l'email, la synthèse vous est envoyée chaque matin depuis le compte Gmail du responsable du service (Google assure l'acheminement). Chaque email a un seul destinataire : votre adresse n'est visible d'aucun autre abonné.</p>
         <p><strong>Conservation :</strong> compte et préférences jusqu'à la suppression du compte (effacement immédiat) ; compte jamais confirmé effacé après 30 jours ; date de votre dernier choix de réception gardée comme preuve de consentement ; articles marqués comme lus 90 jours ; articles sauvegardés jusqu'à leur retrait ou la suppression du compte ; synthèses 12 mois ; demandes de veille internes 90 jours ; journal des actions de l'équipe d'administration 12 mois. Sur Discord, les messages des salons #assistant et #alertes sont effacés au delà de 30 jours.</p>
         <p><strong>Vérification des liens :</strong> pour signaler un lien rompu, l'app interroge une fois par jour au plus l'adresse de chaque article sauvegardé ; seule l'adresse publique de l'article est appelée, sans aucune donnée vous concernant.</p>
-        <p><strong>Vos droits :</strong> accès, portabilité, rectification, suppression et opposition (Mon compte, Réception : « Ne rien recevoir »). Depuis Mon compte, Mes données : téléchargez une copie de vos données ou supprimez votre compte à tout moment.</p>
+        <p><strong>Vos droits :</strong> accès, portabilité, rectification, suppression, limitation et opposition (Mon compte, Réception : « Ne rien recevoir »). Pour toute demande : {CONTACT}. Vous pouvez aussi adresser une réclamation à la CNIL (cnil.fr). Depuis Mon compte, Mes données : téléchargez une copie de vos données ou supprimez votre compte à tout moment.</p>
       </>
     ),
   },

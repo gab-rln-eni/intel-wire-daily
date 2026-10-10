@@ -218,8 +218,7 @@ function Admin() {
         </div>
         {modeTest && (
           <div role="status" className="border-b border-primary bg-accent-soft px-5 py-2 text-[13px] text-foreground">
-            <b className="font-semibold">Mode test actif</b> ({data?.modeTestMaj}) : la liste des abonnés transmise à n8n ne contient que l'équipe ; aucun abonné n'est servi.
-            Avec Publication v4, la diffusion dans le salon Discord est aussi suspendue.
+            <b className="font-semibold">Mode test actif</b> ({data?.modeTestMaj}) : pas de diffusion Discord, et les emails de la synthèse ne partent qu'à l'équipe ; aucun abonné n'est servi.
           </div>
         )}
         {bascule && <p role="alert" className="border-b border-border px-5 py-2 text-[13px] text-destructive">{bascule}</p>}

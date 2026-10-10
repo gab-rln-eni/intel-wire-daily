@@ -86,7 +86,7 @@ async function sonder(lien: string): Promise<Etat> {
     try {
       const r = await fetch(u.toString(), {
         method: methode,
-        redirect: "follow",
+        redirect: "manual", // CYB-10 : redirection jamais suivie (cible non contrôlée) ; une réponse 3xx compte comme « ok »
         signal: ctrl.signal,
         headers: { "user-agent": "LeFilIA-verif-liens/1.0", ...(methode === "GET" ? { range: "bytes=0-0" } : {}) },
       });

@@ -47,6 +47,8 @@ export const Route = createFileRoute("/api/public/publier-synthese")({
 
         let sujets: Record<string, unknown>[] | null = null;
         if (Array.isArray(body["sujets"])) {
+          // API-01 : au plus 100 sujets par jour (30 en pratique avec une veille complémentaire)
+          if ((body["sujets"] as unknown[]).length > 100) return json({ error: "trop de sujets" }, 400);
           sujets = [];
           for (const raw of body["sujets"] as Record<string, unknown>[]) {
             const titre = str(raw?.["titre"]) ?? "";

@@ -24,7 +24,7 @@ import { Apparition } from "@/components/Anime";
 import { Segments } from "@/components/Segments";
 import { supprimerCompte } from "@/lib/compte.functions";
 import { verifierFavoris } from "@/lib/favoris.functions";
-import { useActionsLecture, useFavoris, useLus, useSujets, useSyntheses, type Favori, type SujetLu } from "@/lib/lecture";
+import { useActionsLecture, useFavoris, useLus, useRubriquesSuivies, useSujets, useSyntheses, type Favori, type SujetLu } from "@/lib/lecture";
 import { INVITATION_DISCORD, RUBRIQUES, formatDate, rubriqueIndex, todayParis } from "@/lib/rubriques";
 
 type Vue = "historique" | "donnees" | "articles";
@@ -159,6 +159,8 @@ function Compte() {
   return <Synthese userId={userId} synthese={current} isLatest={isLatest} onRetour={() => navigate({ search: {} })} />;
 }
 
+const AUTRES = "__autres__";
+
 type SyntheseInfo = { id: string; date_veille: string; exemple: boolean; nb_sources: number | null; nb_sources_echec: number | null; nb_articles: number | null };
 
 const heureP = (d?: string | null) => (d ? new Date(d).toLocaleTimeString("fr-FR", { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit" }) : "");
@@ -174,15 +176,22 @@ function Synthese({ userId, synthese, isLatest, onRetour }: { userId: string; sy
   const [onglet, setOnglet] = useState<string | null | undefined>(undefined);
   const [erreur, setErreur] = useState("");
 
-  const presentes = useMemo(() => [...new Set(sujets.map((s) => s.rubrique))].sort((a, b) => rubriqueIndex(a) - rubriqueIndex(b)), [sujets]);
-  const nonLus = (r: string | null) => sujets.filter((s) => (r === null || s.rubrique === r) && !lus.has(s.lien)).length;
+  // FON-02 : la synthèse s'ouvre sur les rubriques suivies ; les autres restent accessibles dans « Autres rubriques »
+  const { data: suivies } = useRubriquesSuivies(userId);
+  const suit = (r: string) => !suivies || suivies.has(r);
+  const toutes = useMemo(() => [...new Set(sujets.map((s) => s.rubrique))].sort((a, b) => rubriqueIndex(a) - rubriqueIndex(b)), [sujets]);
+  const presentes = toutes.filter(suit);
+  const autres = toutes.filter((r) => !suit(r));
+  const dans = (r: string | null, s: SujetLu) => (r === null ? suit(s.rubrique) : r === AUTRES ? !suit(s.rubrique) : s.rubrique === r);
+  const nonLus = (r: string | null) => sujets.filter((s) => dans(r, s) && !lus.has(s.lien)).length;
   // Onglet ouvert par défaut : la première rubrique qui a des non lus (sinon toutes)
   useEffect(() => setOnglet(undefined), [synthese?.id]);
   const actif = onglet !== undefined ? onglet : (presentes.find((r) => nonLus(r) > 0) ?? null);
-  const dansOnglet = sujets.filter((s) => actif === null || s.rubrique === actif);
+  const dansOnglet = sujets.filter((s) => dans(actif, s));
   const aLire = dansOnglet.filter((s) => !lus.has(s.lien));
   const dejaLus = dansOnglet.filter((s) => lus.has(s.lien));
-  const suivante = presentes.find((r) => r !== actif && nonLus(r) > 0);
+  const suivante = [...presentes, ...(autres.length ? [AUTRES] : [])].find((r) => r !== actif && nonLus(r) > 0);
+  const nbSuivis = sujets.filter((s) => suit(s.rubrique)).length;
   const sourcesCitees = new Set(sujets.map((s) => s.source)).size;
   const fluxLus = synthese?.nb_sources != null ? synthese.nb_sources - (synthese.nb_sources_echec ?? 0) : null;
   const titre = synthese
@@ -206,7 +215,7 @@ function Synthese({ userId, synthese, isLatest, onRetour }: { userId: string; sy
       sujet={s}
       lu={lus.has(s.lien)}
       favori={etoiles.has(s.lien)}
-      afficherRubrique={actif === null}
+      afficherRubrique={actif === null || actif === AUTRES}
       onOuvrir={() => garde(() => actions.marquerLus([s.lien]))}
       onLu={() => garde(() => (lus.has(s.lien) ? actions.marquerNonLu(s.lien) : actions.marquerLus([s.lien])))}
       onFavori={() => garde(() => actions.basculerFavori(s.lien, etoiles.has(s.lien)))}
@@ -218,7 +227,7 @@ function Synthese({ userId, synthese, isLatest, onRetour }: { userId: string; sy
       <EnTete id="synthese-titre" label={synthese ? formatDate(synthese.date_veille) : "Votre veille"} titre={titre}>
         {synthese && (
           <p className="mt-2 font-mono text-xs text-ink3">
-            {sujets.length} sujets | {nonLus(null)} non lus | {sourcesCitees} sources citées
+            {nbSuivis < sujets.length ? `${nbSuivis} sujets dans vos rubriques sur ${sujets.length}` : `${sujets.length} sujets`} | {nonLus(null)} non lus | {sourcesCitees} sources citées
             {synthese.nb_articles != null ? ` | ${synthese.nb_articles.toLocaleString("fr-FR")} entrées de flux lues` : ""}
             {fluxLus != null && synthese.nb_sources ? ` | ${fluxLus} flux sur ${synthese.nb_sources}` : ""}
           </p>
@@ -229,17 +238,20 @@ function Synthese({ userId, synthese, isLatest, onRetour }: { userId: string; sy
         <p className="mt-6 text-sm text-muted-foreground">Aucune synthèse envoyée pour le moment.</p>
       ) : (
         <>
-          {/* Onglets : une rubrique par onglet, avec son compteur de non lus (la notification) */}
-          <div role="tablist" aria-label="Rubriques de la synthèse" className="-mx-4 mt-6 flex overflow-x-auto border-b border-border px-4 sm:mx-0 sm:px-0">
-            {[{ v: null as string | null, t: "Toutes" }, ...presentes.map((r) => ({ v: r as string | null, t: r }))].map((o) => {
+          {/* Filtres par rubrique, avec le compteur de non lus (ACC-04 : boutons à état, la touche Tab suffit) */}
+          <div role="group" aria-label="Rubriques de la synthèse" className="-mx-4 mt-6 flex overflow-x-auto border-b border-border px-4 sm:mx-0 sm:px-0">
+            {[
+              { v: null as string | null, t: autres.length ? "Mes rubriques" : "Toutes" },
+              ...presentes.map((r) => ({ v: r as string | null, t: r })),
+              ...(autres.length ? [{ v: AUTRES as string | null, t: "Autres rubriques" }] : []),
+            ].map((o) => {
               const n = nonLus(o.v);
               const sel = actif === o.v;
               return (
                 <button
                   key={o.t}
                   type="button"
-                  role="tab"
-                  aria-selected={sel}
+                  aria-pressed={sel}
                   aria-label={`${o.t}, ${n} non lu${n > 1 ? "s" : ""}`}
                   onClick={() => setOnglet(o.v)}
                   className={`-mb-px flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 text-[13px] transition-colors ${sel ? "border-primary font-semibold text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
@@ -253,7 +265,7 @@ function Synthese({ userId, synthese, isLatest, onRetour }: { userId: string; sy
             })}
           </div>
 
-          <div role="tabpanel" aria-label={actif ?? "Toutes les rubriques"} className="max-w-[48rem]">
+          <div className="max-w-[48rem]">
             <div className="flex flex-wrap items-center justify-between gap-3 py-3 text-xs text-muted-foreground">
               <span>
                 {aLire.length ? `${aLire.length} à lire${dejaLus.length ? `, ${dejaLus.length} déjà lu${dejaLus.length > 1 ? "s" : ""}` : ""}` : isLoading ? "Chargement..." : "Tout est lu ici."}
@@ -269,10 +281,10 @@ function Synthese({ userId, synthese, isLatest, onRetour }: { userId: string; sy
             {aLire.length > 0 && <ul className="divide-y divide-border border-y border-border">{aLire.map(ligne)}</ul>}
             {aLire.length === 0 && !isLoading && (
               <div className="border-y border-border py-6 text-sm text-muted-foreground">
-                Rien de nouveau dans {actif ? "cette rubrique" : "cette synthèse"}.
+                Rien de nouveau dans {actif ? "cette rubrique" : "vos rubriques"}.
                 {suivante && (
                   <button type="button" className="link-accent ml-2 font-medium" onClick={() => setOnglet(suivante)}>
-                    {suivante} : {nonLus(suivante)} à lire →
+                    {suivante === AUTRES ? "Autres rubriques" : suivante} : {nonLus(suivante)} à lire →
                   </button>
                 )}
               </div>
@@ -317,14 +329,14 @@ function LigneSujet({ sujet, lu, favori, afficherRubrique, onOuvrir, onLu, onFav
   onFavori: () => void;
 }) {
   return (
-    <li className={`grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 py-4 ${lu ? "opacity-60" : ""}`}>
+    <li className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 py-4">
       <article className="min-w-0">
-        <h3 className={`text-[15.5px] leading-snug text-foreground ${lu ? "font-medium" : "font-semibold"}`}>
+        <h2 className={`text-[15.5px] leading-snug ${lu ? "font-medium text-muted-foreground" : "font-semibold text-foreground"}`}>
           <a href={sujet.lien} target="_blank" rel="noopener noreferrer" onClick={onOuvrir} className="decoration-primary decoration-1 underline-offset-4 hover:underline focus-visible:underline">
             {sujet.titre}
             <span className="sr-only"> (nouvel onglet)</span>
           </a>
-        </h3>
+        </h2>
         <p className="mt-1.5 text-[14px] leading-relaxed text-muted-foreground">{sujet.redige && sujet.resume ? sujet.resume : sujet.extrait}</p>
         <p className="mt-2 font-mono text-[0.7rem] text-ink3">
           {sujet.source}
@@ -399,12 +411,12 @@ function MesArticles({ userId }: { userId: string }) {
           {liste.map((f) => (
             <li key={f.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 py-4">
               <article className="min-w-0">
-                <h3 className="text-[15.5px] font-semibold leading-snug text-foreground">
+                <h2 className="text-[15.5px] font-semibold leading-snug text-foreground">
                   <a href={f.lien} target="_blank" rel="noopener noreferrer" className="decoration-primary decoration-1 underline-offset-4 hover:underline focus-visible:underline">
                     {f.titre}
                     <span className="sr-only"> (nouvel onglet)</span>
                   </a>
-                </h3>
+                </h2>
                 {f.resume && <p className="mt-1.5 text-[14px] leading-relaxed text-muted-foreground">{f.resume}</p>}
                 <p className="mt-2 font-mono text-[0.7rem] text-ink3">
                   {[f.source, f.rubrique, f.date_veille ? `synthèse du ${f.date_veille.split("-").reverse().join("/")}` : ""].filter(Boolean).join(" | ")}
@@ -469,7 +481,7 @@ function Preferences({ userId }: { userId: string }) {
     e.preventDefault();
     const { error } = await supabase
       .from("profiles")
-      .update({ canal, discord_webhook_url: null })
+      .update({ canal })
       .eq("id", userId);
     setMsg(error ? { ok: false, text: "Enregistrement impossible." } : { ok: true, text: "Préférence enregistrée." });
     qc.invalidateQueries({ queryKey: ["profile", userId] });
@@ -480,11 +492,12 @@ function Preferences({ userId }: { userId: string }) {
     const ordered = RUBRIQUES.filter((r) => rubriques.includes(r));
     const { error } = await supabase.from("profiles").update({ rubriques: ordered }).eq("id", userId);
     setMsgR(error ? { ok: false, text: "Enregistrement impossible." } : { ok: true, text: "Rubriques enregistrées." });
+    qc.invalidateQueries({ queryKey: ["rubriques", userId] });
   };
 
   return (
     <>
-      <LigneReglage id="rubriques-titre" titre="Rubriques suivies" aide="Les rubriques que vous recevez chaque matin.">
+      <LigneReglage id="rubriques-titre" titre="Rubriques suivies" aide="Votre synthèse et vos emails ne montrent que ces rubriques ; les autres restent consultables dans « Autres rubriques ».">
         <form onSubmit={saveRubriques} className="space-y-4">
           <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
           {RUBRIQUES.map((r, i) => (
